@@ -30,7 +30,7 @@ import adminApprovedRoutes from "./routes/approved.js";
     app.use('/host',HostRoutes);
     app.use('/property',propertyRoutes);
     app.use('/adminproperty',adminPropertyRoutes);
-    app.use("/admin/approved", adminApprovedRoutes);
+    app.use("/admin/approved", adminApprovedRoutes)
 
     const PORT = process.env.PORT || 5000;
     app.listen(PORT, () => console.log("Server running on", PORT));
