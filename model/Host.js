@@ -49,7 +49,16 @@ const Host = sequelize.define('Host', {
   selfie_photo: {
     type: DataTypes.STRING,
     allowNull: false
+  },
+  status: {
+    type: DataTypes.STRING,
+    defaultValue: "pending"   // pending, approved, rejected
+  },
+  rejection_reason: {
+    type: DataTypes.TEXT,
+    defaultValue: ""
   }
+
 }, {
   tableName: 'hosts',
   timestamps: true,

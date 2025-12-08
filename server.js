@@ -2,9 +2,15 @@ import dotenv from "dotenv";
 dotenv.config();
 
 import express from "express";
-import cors from "cors"; // missing before
+import cors from "cors";
 import sequelize from "./config/db.js";
 
+// import MODELS FIRST
+import "./model/User.js";
+import "./model/Host.js";
+import "./model/Property.js";   // add any other models here
+
+// now import Routes
 import otpRoutes from "./routes/otp.routes.js";
 import adminRoutes from "./routes/adminroutes.js";
 import HostRoutes from "./routes/HostRoutes.js";
@@ -12,12 +18,10 @@ import propertyRoutes from "./routes/propertyRoutes.js";
 import adminPropertyRoutes from "./routes/adminPropertyRoutes.js";
 import adminApprovedRoutes from "./routes/approved.js";
 
-
-
 (async () => {
   try {
     await sequelize.authenticate();
-    await sequelize.sync();            // or sync({ alter: true }) in dev
+    await sequelize.sync({ alter:true });
 
     console.log("MySQL connected");
 
@@ -25,12 +29,13 @@ import adminApprovedRoutes from "./routes/approved.js";
     app.use(cors());
     app.use(express.json());
 
+    // Routes
     app.use("/otp", otpRoutes);
-    app.use('/admin',adminRoutes);
-    app.use('/host',HostRoutes);
-    app.use('/property',propertyRoutes);
-    app.use('/adminproperty',adminPropertyRoutes);
-    app.use("/admin/approved", adminApprovedRoutes)
+    app.use('/admin', adminRoutes);
+    app.use('/host', HostRoutes);
+    app.use('/property', propertyRoutes);
+    app.use('/adminproperty', adminPropertyRoutes);
+    app.use("/admin/approved", adminApprovedRoutes);
 
     const PORT = process.env.PORT || 5000;
     app.listen(PORT, () => console.log("Server running on", PORT));

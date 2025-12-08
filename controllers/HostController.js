@@ -38,8 +38,10 @@ export const saveHost = async (req, res) => {
       address: req.body.address,
       id_type: req.body.idType,
       id_number: req.body.idNumber,
-      id_photo: req.body.idPhoto,
-      selfie_photo: req.body.selfiePhoto
+
+      // IMPORTANT: take from multer-s3
+      id_photo: req.files?.idPhoto ? req.files.idPhoto[0].location : null,
+      selfie_photo: req.files?.selfiePhoto ? req.files.selfiePhoto[0].location : null
     });
 
     return res.status(201).json({
@@ -56,6 +58,9 @@ export const saveHost = async (req, res) => {
     });
   }
 };
+
+
+
 
 // Get the saved details for logged-in user
 export const getMyHost = async (req, res) => {
