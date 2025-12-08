@@ -11,7 +11,8 @@ import {
   savePricing,
   submitProperty,
   getMyListings,
-  getApprovedListings
+  getApprovedListings,
+  getPropertyById
 } from "../controllers/propertyController.js";
 import userauth from "../middleware/userAuth.js";
 import { upload } from '../middleware/upload.js'
@@ -47,5 +48,8 @@ router.get("/my-listings", userauth, getMyListings);
 
 // Public Listings
 router.get("/approved", getApprovedListings);
+
+router.get("/:id", getPropertyById);
+
 
 export default router;

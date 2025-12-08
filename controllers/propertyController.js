@@ -218,3 +218,28 @@ export const getApprovedListings = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+
+
+export const getPropertyById = async (req, res) => {
+  try {
+    const property = await Property.findByPk(req.params.id);
+
+    if (!property) {
+      return res.status(404).json({
+        success: false,
+        message: "Property not found"
+      });
+    }
+
+    return res.json({
+      success: true,
+      property
+    });
+
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      message: "Server error"
+    });
+  }
+};
