@@ -1,5 +1,5 @@
 {
-  "name": "nextkinlife-backend",
+  "name": "netkinlife-backend",
   "version": "1.0.0",
   "type": "module",
   "main": "server.js",
@@ -17,6 +17,7 @@
     "dotenv": "^17.2.3",
     "express": "^5.1.0",
     "jsonwebtoken": "^9.0.2",
+    "mongoose": "^9.0.0",
     "multer": "^2.0.2",
     "multer-s3": "^3.0.1",
     "mysql2": "^3.15.3",
