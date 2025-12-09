@@ -29,9 +29,11 @@ RUN npm ci --silent --only=production
  
 # Copy build output or JS source
 COPY --from=build /backend-accommodations ./
- 
+
+ENV HOST=0.0.0.0
+
 # Expose backend port
 EXPOSE 5000
  
 # Start the backend
-CMD ["node", "server.js"]
+CMD ["node", "-e", "require('./server.js').app.listen(process.env.PORT || 5000, '0.0.0.0')"]
