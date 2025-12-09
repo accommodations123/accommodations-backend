@@ -84,3 +84,53 @@ export const getMyHost = async (req, res) => {
     });
   }
 };
+
+
+// get pending hosts (admin)
+export const getPendingHosts = async (req, res) => {
+  try {
+    const hosts = await Host.findAll({
+      where: { status: "pending" },
+      include: [{ model: User }]
+    });
+
+    res.json({ success: true, hosts });
+  } catch(err){
+    res.status(500).json({message:"Server error"});
+  }
+};
+
+// approve host
+export const approveHost = async (req, res) => {
+  try {
+    const host = await Host.findByPk(req.params.id);
+    if(!host) return res.status(404).json({message:"Not found"});
+
+    host.status = "approved";
+    host.rejection_reason = "";
+    await host.save();
+
+    res.json({success:true, message:"Host approved"});
+  } catch(err){
+    res.status(500).json({message:"Server error"});
+  }
+};
+
+// reject host
+export const rejectHost = async (req, res) => {
+  try {
+    const host = await Host.findByPk(req.params.id);
+    if(!host) return res.status(404).json({message:"Not found"});
+
+    host.status="rejected";
+    host.rejection_reason=req.body.reason || "";
+    await host.save();
+
+    res.json({
+      success:true,
+      message:"Host rejected"
+    });
+  } catch(err){
+    res.status(500).json({message:"Server error"});
+  }
+};

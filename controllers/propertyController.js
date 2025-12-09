@@ -1,5 +1,6 @@
 import Property from "../model/Property.js";
-
+import User from "../model/User.js";
+import Host from "../model/Host.js";
 // CREATE DRAFT LISTING
 export const createDraft = async (req, res) => {
   try {
@@ -222,7 +223,29 @@ export const getApprovedListings = async (req, res) => {
 
 export const getPropertyById = async (req, res) => {
   try {
-    const property = await Property.findByPk(req.params.id);
+    const property = await Property.findByPk(req.params.id, {
+      include: [
+        {
+          model: User,
+          attributes: ["id", "email"],
+          include: [
+            {
+              model: Host,
+              attributes: [
+                "id",
+                "full_name",
+                "country",
+                "city",
+                "address",
+                "status",
+                "id_photo",
+                "selfie_photo"
+              ]
+            }
+          ]
+        }
+      ]
+    });
 
     if (!property) {
       return res.status(404).json({
@@ -237,9 +260,12 @@ export const getPropertyById = async (req, res) => {
     });
 
   } catch (err) {
+    console.log("getPropertyById Error:", err);
     return res.status(500).json({
       success: false,
       message: "Server error"
     });
   }
 };
+
+

@@ -5,10 +5,9 @@ import express from "express";
 import cors from "cors";
 import sequelize from "./config/db.js";
 
-// import MODELS FIRST
-// import "./model/User.js";
-// import "./model/Host.js";
-// import "./model/Property.js";   // add any other models here
+import "./model/User.js";
+import "./model/Host.js";
+import "./model/Property.js";   // add any other models here
 
 // now import Routes
 import otpRoutes from "./routes/otp.routes.js";
@@ -38,7 +37,7 @@ import adminApprovedRoutes from "./routes/approved.js";
     app.use("/admin/approved", adminApprovedRoutes);
 
     const PORT = process.env.PORT || 5000;
-    app.listen(PORT, () => console.log("Server running on", PORT));
+    app.listen(PORT, "0.0.0.0", () => console.log("Server running on", PORT));
 
   } catch (err) {
     console.log("DB Error:", err.message);
