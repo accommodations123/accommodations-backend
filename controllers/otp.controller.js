@@ -4,7 +4,6 @@ dotenv.config();
 import jwt from 'jsonwebtoken';
 import nodemailer from 'nodemailer';
 import User from '../model/User.js';
-import { getCache, setCache } from "../services/cacheService.js";
 
 // Email Transporter
 const transporter = nodemailer.createTransport({
@@ -30,17 +29,21 @@ export const sendOTP = async (req, res) => {
     }
 
     const otp = generateOTP();
-
-    // store OTP in Redis instead of DB fields
-    const key = `otp:${email}`;
-    await setCache(key, otp, 300); // expires in 5 minutes
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
 
     let user = await User.findOne({ where: { email } });
 
     if (!user) {
-      user = await User.create({ email, verified: false });
+      user = await User.create({ 
+        email, 
+        verified: false, 
+        otp,
+        otpExpires: expiresAt 
+      });
     } else {
       user.verified = false;
+      user.otp = otp;
+      user.otpExpires = expiresAt;
       await user.save();
     }
 
@@ -61,7 +64,6 @@ export const sendOTP = async (req, res) => {
   }
 };
 
-
 // VERIFY OTP
 export const verifyOTP = async (req, res) => {
   try {
@@ -71,24 +73,23 @@ export const verifyOTP = async (req, res) => {
       return res.status(400).json({ message: 'Email and OTP are required' });
     }
 
-    const key = `otp:${email}`;
-    const expected = await getCache(key);
+    let user = await User.findOne({ where: { email } });
 
-    if (!expected) {
+    if (!user || !user.otp || !user.otpExpires) {
       return res.status(400).json({ message: 'OTP expired or not found' });
     }
 
-    if (expected !== otp) {
+    if (user.otpExpires < new Date()) {
+      return res.status(400).json({ message: 'OTP expired or not found' });
+    }
+
+    if (user.otp !== otp) {
       return res.status(400).json({ message: 'Invalid OTP' });
     }
 
-    let user = await User.findOne({ where: { email } });
-
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-
     user.verified = true;
+    user.otp = null;
+    user.otpExpires = null;
     await user.save();
 
     const token = jwt.sign(
@@ -106,4 +107,3 @@ export const verifyOTP = async (req, res) => {
     return res.status(500).json({ message: 'Server error' });
   }
 };
-

@@ -2,17 +2,11 @@ import Approved from "../model/Approved.js";
 import Property from "../model/Property.js";
 import Host from "../model/Host.js";
 import User from "../model/User.js";
-import { getCache, setCache, deleteCache } from "../services/cacheService.js";
 
 // GET approved snapshot list
 export const getApprovedList = async (req, res) => {
   try {
     const key = "approvedPropertySnapshots";
-
-    const cached = await getCache(key);
-    if (cached) {
-      return res.json({ success: true, data: cached });
-    }
 
     const list = await Approved.findAll({
       order: [["createdAt", "DESC"]]
@@ -30,8 +24,6 @@ export const getApprovedList = async (req, res) => {
       ownerPhone: item.host_snapshot?.phone
     }));
 
-    await setCache(key, formatted, 600);
-
     return res.json({ success: true, data: formatted });
 
   } catch (error) {
@@ -43,11 +35,6 @@ export const getApprovedList = async (req, res) => {
 export const getApprovedWithHosts = async (req, res) => {
   try {
     const key = "approvedWithHosts";
-
-    const cached = await getCache(key);
-    if (cached) {
-      return res.json({ success: true, data: cached });
-    }
 
     const properties = await Property.findAll({
       where: { status: "approved" },
@@ -70,13 +57,9 @@ export const getApprovedWithHosts = async (req, res) => {
       })
     );
 
-    await setCache(key, data, 600);
-
     return res.json({ success: true, data });
 
   } catch (err) {
     return res.status(500).json({ message: "server error" });
   }
 };
-
-
