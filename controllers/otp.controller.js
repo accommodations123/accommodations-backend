@@ -65,28 +65,36 @@ export const sendOTP = async (req, res) => {
 };
 
 // VERIFY OTP
+
 export const verifyOTP = async (req, res) => {
   try {
     const { email, otp } = req.body;
 
     if (!email || !otp) {
-      return res.status(400).json({ message: 'Email and OTP are required' });
+      return res.status(400).json({ message: "Email and OTP are required" });
     }
 
     let user = await User.findOne({ where: { email } });
 
+    // If no user or no otp saved
     if (!user || !user.otp || !user.otpExpires) {
-      return res.status(400).json({ message: 'OTP expired or not found' });
+      return res.status(400).json({ message: "OTP expired or not found" });
     }
 
-    if (user.otpExpires < new Date()) {
-      return res.status(400).json({ message: 'OTP expired or not found' });
+    // convert DB value to Date for proper comparison
+    const expires = new Date(user.otpExpires);
+
+    // check expiration
+    if (expires < new Date()) {
+      return res.status(400).json({ message: "OTP expired or not found" });
     }
 
+    // match OTP
     if (user.otp !== otp) {
-      return res.status(400).json({ message: 'Invalid OTP' });
+      return res.status(400).json({ message: "Invalid OTP" });
     }
 
+    // update user status
     user.verified = true;
     user.otp = null;
     user.otpExpires = null;
@@ -98,12 +106,13 @@ export const verifyOTP = async (req, res) => {
     );
 
     return res.json({
-      message: 'OTP Verified',
+      message: "OTP Verified",
       token,
       user: { id: user.id, email: user.email }
     });
 
   } catch (error) {
-    return res.status(500).json({ message: 'Server error' });
+    return res.status(500).json({ message: "Server error" });
   }
 };
+

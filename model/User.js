@@ -15,8 +15,10 @@ const User = sequelize.define('User', {
   otp: {
     type: DataTypes.STRING
   },
-  otp_expires: {
-    type: DataTypes.DATE
+  otpExpires: {
+    type: DataTypes.DATE,
+    field: 'otp_expires',
+    allowNull: true
   },
   verified: { 
     type: DataTypes.BOOLEAN,
