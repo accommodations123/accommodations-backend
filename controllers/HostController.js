@@ -5,10 +5,10 @@ import User from "../model/User.js";
 export const saveHost = async (req, res) => {
   try {
     console.log("==== BODY ====");
-console.log(req.body);
+    console.log(req.body);
 
-console.log("==== FILES ====");
-console.log(req.files);
+    console.log("==== FILES ====");
+    console.log(req.files);
 
     const userId = req.user.id;
 
@@ -38,12 +38,12 @@ console.log(req.files);
       user_id: userId,
       email,
       phone,
-      full_name: req.body.fullName,
+      full_name: req.body.full_name,
       country: req.body.country,
       city: req.body.city,
       address: req.body.address,
-      id_type: req.body.idType,
-      id_number: req.body.idNumber,
+      id_type: req.body.id_type,
+      id_number: req.body.id_number,
 
       id_photo: req.files?.idPhoto ? req.files.idPhoto[0].location : null,
       selfie_photo: req.files?.selfiePhoto ? req.files.selfiePhoto[0].location : null
@@ -93,8 +93,8 @@ export const getPendingHosts = async (req, res) => {
 
     return res.json({ success: true, hosts });
 
-  } catch(err){
-    return res.status(500).json({ message:"Server error" });
+  } catch (err) {
+    return res.status(500).json({ message: "Server error" });
   }
 };
 
@@ -103,17 +103,17 @@ export const approveHost = async (req, res) => {
   try {
     const host = await Host.findByPk(req.params.id);
     if (!host) {
-      return res.status(404).json({ message:"Not found" });
+      return res.status(404).json({ message: "Not found" });
     }
 
     host.status = "approved";
     host.rejection_reason = "";
     await host.save();
 
-    return res.json({ success:true, message:"Host approved" });
+    return res.json({ success: true, message: "Host approved" });
 
-  } catch(err){
-    return res.status(500).json({ message:"Server error" });
+  } catch (err) {
+    return res.status(500).json({ message: "Server error" });
   }
 };
 
@@ -122,7 +122,7 @@ export const rejectHost = async (req, res) => {
   try {
     const host = await Host.findByPk(req.params.id);
     if (!host) {
-      return res.status(404).json({ message:"Not found" });
+      return res.status(404).json({ message: "Not found" });
     }
 
     host.status = "rejected";
@@ -130,11 +130,11 @@ export const rejectHost = async (req, res) => {
     await host.save();
 
     return res.json({
-      success:true,
-      message:"Host rejected"
+      success: true,
+      message: "Host rejected"
     });
 
-  } catch(err){
-    return res.status(500).json({ message:"Server error" });
+  } catch (err) {
+    return res.status(500).json({ message: "Server error" });
   }
 };
