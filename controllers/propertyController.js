@@ -13,8 +13,7 @@ export const createDraft = async (req, res) => {
       return res.status(400).json({ message: "Missing required fields." });
     }
 
-    // FETCH HOST (Required)
-    const host = await Host.findOne({ where: { host_id: userId } });
+    const host = await Host.findOne({ where: { user_id: userId } });
 
     if (!host) {
       return res.status(400).json({
@@ -22,9 +21,8 @@ export const createDraft = async (req, res) => {
       });
     }
 
-    // CREATE PROPERTY
     const property = await Property.create({
-      host_id: host.id,   // using the host_id correctly
+      host_id: host.id,
       category_id: categoryId,
       property_type: propertyType,
       privacy_type: privacyType,
