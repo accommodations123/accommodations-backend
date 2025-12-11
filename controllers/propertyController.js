@@ -243,22 +243,31 @@ export const getMyListings = async (req, res) => {
 export const getApprovedListings = async (req, res) => {
   try {
     const properties = await Property.findAll({
-      where: { status: ["approved","pending"] },
-      include: [{
-        model: User,
-        attributes: ["id","email"],
-        include:[{
-          model:Host,
-          attributes:["id","status"]
-        }]
-      }]
+      where: {
+        status: ["approved", "pending"]
+      },
+      include: [
+        {
+          model: Host,
+          attributes: ["id", "full_name", "status"],
+          include: [
+            {
+              model: User,
+              attributes: ["id", "email"]
+            }
+          ]
+        }
+      ]
     });
 
-    return res.json({success:true,properties});
-  } catch(err){
-    res.status(500).json({message:"Server error"})
+    return res.json({ success: true, properties });
+
+  } catch (err) {
+    console.log("Error:", err);
+    return res.status(500).json({ message: "Server error" });
   }
 };
+
 
 // PUBLIC: return all properties (approved + pending) with host
 export const getAllPropertiesWithHosts = async (req, res) => {
