@@ -247,7 +247,7 @@ export const getApprovedListings = async (req, res) => {
       include: [
         {
           model: Host,
-          attributes: ["id", "full_name", "status","phone"],
+          attributes: ["id", "full_name", "status","phone","selfie_photo"],
           include: [
             {
               model: User,
