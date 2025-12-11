@@ -18,13 +18,14 @@ const router = express.Router();
 
 router.post("/save",userauth,upload.fields([{ name: "idPhoto", maxCount: 1 },{ name: "selfiePhoto", maxCount: 1 }]),saveHost);
 // router.put("/update",userauth,upload.fields([{ name: "idPhoto", maxCount: 1 },{ name: "selfiePhoto", maxCount: 1 }]),updateHost);
+// Get logged-in user's host verification details
+router.get("/get", userauth, getMyHost);
 router.get("/admin/hosts/pending",adminAuth,getPendingHosts)
 router.put("/admin/hosts/approve/:id",adminAuth,approveHost)
 router.put("/admin/hosts/reject/:id",adminAuth,rejectHost)
 
 
 
-// Get logged-in user's host verification details
-router.get("/get", userauth, getMyHost);
+
 
 export default router;

@@ -13,8 +13,18 @@ export const createDraft = async (req, res) => {
       return res.status(400).json({ message: "Missing required fields." });
     }
 
+    // FETCH HOST (Required)
+    const host = await Host.findOne({ where: { host_id: userId } });
+
+    if (!host) {
+      return res.status(400).json({
+        message: "You must complete host details before posting a property."
+      });
+    }
+
+    // CREATE PROPERTY
     const property = await Property.create({
-      user_id: userId,
+      host_id: host.id,   // using the host_id correctly
       category_id: categoryId,
       property_type: propertyType,
       privacy_type: privacyType,
@@ -26,10 +36,13 @@ export const createDraft = async (req, res) => {
       propertyId: property.id,
       message: "Draft created successfully."
     });
+
   } catch (err) {
+    console.log("CREATE DRAFT ERROR:", err);
     return res.status(500).json({ message: "Server error" });
   }
 };
+
 
 // BASIC INFO
 export const saveBasicInfo = async (req, res) => {
@@ -216,7 +229,7 @@ export const getMyListings = async (req, res) => {
     const userId = req.user.id;
 
     const properties = await Property.findAll({
-      where: { user_id: userId }
+      where: { host_id: userId }
     });
 
     return res.json({ success: true, properties });
@@ -251,17 +264,15 @@ export const getApprovedListings = async (req, res) => {
 export const getAllPropertiesWithHosts = async (req, res) => {
   try {
     const properties = await Property.findAll({
-      where: {
-        status: ["approved","pending"]
-      },
+      where: { status: ["approved", "pending"] },
       include: [
         {
-          model: User,
-          attributes: ["id","email"],
+          model: Host,
+          attributes: ["id", "full_name", "status"],
           include: [
             {
-              model: Host,
-              attributes: ["id","full_name","status"]
+              model: User,
+              attributes: ["id", "email"]
             }
           ]
         }
@@ -274,6 +285,7 @@ export const getAllPropertiesWithHosts = async (req, res) => {
     });
 
   } catch (err) {
+    console.log("GET ALL PROPERTIES ERROR:", err);
     return res.status(500).json({
       success: false,
       message: "Server error"
@@ -281,27 +293,28 @@ export const getAllPropertiesWithHosts = async (req, res) => {
   }
 };
 
+
 // single property
 export const getPropertyById = async (req, res) => {
   try {
     const property = await Property.findByPk(req.params.id, {
       include: [
         {
-          model: User,
-          attributes: ["id", "email"],
+          model: Host,
+          attributes: [
+            "id",
+            "full_name",
+            "country",
+            "city",
+            "address",
+            "status",
+            "id_photo",
+            "selfie_photo"
+          ],
           include: [
             {
-              model: Host,
-              attributes: [
-                "id",
-                "full_name",
-                "country",
-                "city",
-                "address",
-                "status",
-                "id_photo",
-                "selfie_photo"
-              ]
+              model: User,
+              attributes: ["id", "email"]
             }
           ]
         }
@@ -315,6 +328,11 @@ export const getPropertyById = async (req, res) => {
     return res.json({ success: true, property });
 
   } catch (err) {
-    return res.status(500).json({ success: false, message: "Server error" });
+    console.log("GET PROPERTY ERROR:", err);
+    return res.status(500).json({
+      success: false,
+      message: "Server error"
+    });
   }
 };
+

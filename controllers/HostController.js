@@ -4,6 +4,12 @@ import User from "../model/User.js";
 // Save host details
 export const saveHost = async (req, res) => {
   try {
+    console.log("==== BODY ====");
+console.log(req.body);
+
+console.log("==== FILES ====");
+console.log(req.files);
+
     const userId = req.user.id;
 
     const user = await User.findByPk(userId);

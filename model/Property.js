@@ -1,6 +1,6 @@
 import { DataTypes } from 'sequelize';
 import sequelize from '../config/db.js';
-import User from './User.js';
+import Host from './Host.js';
 
 const Property = sequelize.define('Property', {
 
@@ -10,7 +10,7 @@ const Property = sequelize.define('Property', {
     primaryKey: true
   },
 
-  user_id: {
+  host_id: {
     type: DataTypes.INTEGER,
     allowNull: false
   },
@@ -64,6 +64,8 @@ const Property = sequelize.define('Property', {
   underscored: true
 });
 
-Property.belongsTo(User, { foreignKey: 'user_id' });
+Property.belongsTo(Host, { foreignKey: 'host_id' });
+Host.hasMany(Property, { foreignKey: 'host_id' });
+
 
 export default Property;
