@@ -5,38 +5,44 @@ import User from "../model/User.js";
 // GET pending properties (admin)
 export const getPendingProperties = async (req, res) => {
   try {
+    console.log("FETCHING PENDING PROPERTIES...");
+
     const properties = await Property.findAll({
       where: { status: "pending" },
       order: [["created_at", "DESC"]],
       include: [
         {
-          model: User,
-          attributes: ["id", "email"]
+          model: Host,
+          attributes: ["id", "user_id"],
+          include: [
+            {
+              model: User,
+              attributes: ["id", "email"]
+            }
+          ]
         }
       ]
     });
 
-    const data = await Promise.all(
-      properties.map(async property => {
-        const host = await Host.findOne({
-          where: { user_id: property.user_id }
-        });
+    console.log("PROPERTIES FOUND:", properties.length);
 
-        const owner = {
-          userId: property.User?.id,
-          email: property.User?.email,
-          verification: host || null
-        };
-
-        return { property, owner };
-      })
-    );
+    const data = properties.map(property => ({
+      property,
+      owner: {
+        userId: property.Host?.User?.id || null,
+        email: property.Host?.User?.email || null,
+        verification: property.Host || null
+      }
+    }));
 
     return res.json({ success: true, data });
+
   } catch (err) {
+    console.log("PENDING ERROR:", err);
     return res.status(500).json({ message: "Server error" });
   }
 };
+
 
 // APPROVE property
 export const approveProperty = async (req, res) => {
@@ -50,6 +56,7 @@ export const approveProperty = async (req, res) => {
 
     return res.json({ success: true, message: "Property approved" });
   } catch (err) {
+    console.log("APPROVE ERROR:", err);
     return res.status(500).json({ message: "Server error" });
   }
 };
@@ -66,6 +73,7 @@ export const rejectProperty = async (req, res) => {
 
     return res.json({ success: true, message: "Property rejected" });
   } catch (err) {
+    console.log("REJECT ERROR:", err);
     return res.status(500).json({ message: "Server error" });
   }
 };
@@ -77,6 +85,7 @@ export const deleteProperty = async (req, res) => {
 
     return res.json({ success: true, message: "Property deleted" });
   } catch (err) {
+    console.log("DELETE ERROR:", err);
     return res.status(500).json({ message: "Server error" });
   }
 };
@@ -92,6 +101,7 @@ export const getPropertyStatusStats = async (req, res) => {
 
     return res.json({ success: true, stats });
   } catch (err) {
+    console.log("STATUS STATS ERROR:", err);
     return res.status(500).json({ message: "Server error" });
   }
 };
@@ -107,23 +117,24 @@ export const getPropertyStats = async (req, res) => {
     `);
 
     return res.json({ success: true, stats });
-  } catch(err){
+  } catch (err) {
+    console.log("PROPERTY STATS ERROR:", err);
     return res.status(500).json({ message: "Server error" });
   }
 };
 
-// simple aggregation
+// simple host aggregation
 export const getHostStats = async (req, res) => {
   try {
-    // aggregation query
     const [stats] = await Host.sequelize.query(`
       SELECT status, COUNT(*) as total
       FROM hosts
       GROUP BY status
     `);
 
-    return res.json({ success:true, stats });
-  } catch(err){
-    return res.status(500).json({ message:"Server error" });
+    return res.json({ success: true, stats });
+  } catch (err) {
+    console.log("HOST STATS ERROR:", err);
+    return res.status(500).json({ message: "Server error" });
   }
 };
