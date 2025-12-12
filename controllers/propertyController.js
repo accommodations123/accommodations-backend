@@ -226,8 +226,14 @@ export const getMyListings = async (req, res) => {
   try {
     const userId = req.user.id;
 
+    const host = await Host.findOne({ where: { user_id: userId } });
+
+    if (!host) {
+      return res.json({ success: true, properties: [] });
+    }
+
     const properties = await Property.findAll({
-      where: { host_id: userId }
+      where: { host_id: host.id }
     });
 
     return res.json({ success: true, properties });
@@ -247,7 +253,7 @@ export const getApprovedListings = async (req, res) => {
       include: [
         {
           model: Host,
-          attributes: ["id", "full_name", "status","phone","selfie_photo"],
+          attributes: ["id", "full_name", "status", "phone", "selfie_photo"],
           include: [
             {
               model: User,
@@ -266,7 +272,6 @@ export const getApprovedListings = async (req, res) => {
   }
 };
 
-
 // PUBLIC: return all properties (approved + pending) with host
 export const getAllPropertiesWithHosts = async (req, res) => {
   try {
@@ -275,7 +280,7 @@ export const getAllPropertiesWithHosts = async (req, res) => {
       include: [
         {
           model: Host,
-          attributes: ["id", "full_name", "status",],
+          attributes: ["id", "full_name", "status"],
           include: [
             {
               model: User,
@@ -299,7 +304,6 @@ export const getAllPropertiesWithHosts = async (req, res) => {
     });
   }
 };
-
 
 // single property
 export const getPropertyById = async (req, res) => {
@@ -342,4 +346,3 @@ export const getPropertyById = async (req, res) => {
     });
   }
 };
-

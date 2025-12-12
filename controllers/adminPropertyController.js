@@ -55,11 +55,13 @@ export const approveProperty = async (req, res) => {
     await property.save();
 
     return res.json({ success: true, message: "Property approved" });
+
   } catch (err) {
     console.log("APPROVE ERROR:", err);
     return res.status(500).json({ message: "Server error" });
   }
 };
+
 
 // REJECT property
 export const rejectProperty = async (req, res) => {
@@ -72,23 +74,26 @@ export const rejectProperty = async (req, res) => {
     await property.save();
 
     return res.json({ success: true, message: "Property rejected" });
+
   } catch (err) {
     console.log("REJECT ERROR:", err);
     return res.status(500).json({ message: "Server error" });
   }
 };
 
+
 // DELETE property
 export const deleteProperty = async (req, res) => {
   try {
     await Property.destroy({ where: { id: req.params.id } });
-
     return res.json({ success: true, message: "Property deleted" });
+
   } catch (err) {
     console.log("DELETE ERROR:", err);
     return res.status(500).json({ message: "Server error" });
   }
 };
+
 
 // simple admin aggregation
 export const getPropertyStatusStats = async (req, res) => {
@@ -100,13 +105,15 @@ export const getPropertyStatusStats = async (req, res) => {
     `);
 
     return res.json({ success: true, stats });
+
   } catch (err) {
     console.log("STATUS STATS ERROR:", err);
     return res.status(500).json({ message: "Server error" });
   }
 };
 
-// property stats aggregation (example)
+
+// property stats aggregation
 export const getPropertyStats = async (req, res) => {
   try {
     const [stats] = await Property.sequelize.query(`
@@ -117,11 +124,13 @@ export const getPropertyStats = async (req, res) => {
     `);
 
     return res.json({ success: true, stats });
+
   } catch (err) {
     console.log("PROPERTY STATS ERROR:", err);
     return res.status(500).json({ message: "Server error" });
   }
 };
+
 
 // simple host aggregation
 export const getHostStats = async (req, res) => {
@@ -133,6 +142,7 @@ export const getHostStats = async (req, res) => {
     `);
 
     return res.json({ success: true, stats });
+
   } catch (err) {
     console.log("HOST STATS ERROR:", err);
     return res.status(500).json({ message: "Server error" });

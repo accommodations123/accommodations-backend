@@ -61,7 +61,17 @@ const Property = sequelize.define('Property', {
 }, {
   tableName: 'properties',
   timestamps: true,
-  underscored: true
+  underscored: true,
+  
+   //  indexes
+  indexes: [
+    { fields: ['host_id'] },
+    { fields: ['status'] },
+    { fields: ['city'] },
+    { fields: ['country'] },
+    { fields: ['category_id'] },
+    { fields: ['property_type'] }
+  ]
 });
 
 Property.belongsTo(Host, { foreignKey: 'host_id' });

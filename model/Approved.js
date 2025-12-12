@@ -37,8 +37,15 @@ const ApprovedHost = sequelize.define('ApprovedHost', {
     defaultValue: DataTypes.NOW
   },
 
-  host_snapshot: DataTypes.JSON,
-  property_snapshot: DataTypes.JSON
+  host_snapshot: {
+    type: DataTypes.JSON,
+    allowNull: true
+  },
+
+  property_snapshot: {
+    type: DataTypes.JSON,
+    allowNull: true
+  }
 
 }, {
   tableName: 'approved_hosts',
@@ -46,7 +53,7 @@ const ApprovedHost = sequelize.define('ApprovedHost', {
   underscored: true
 });
 
-// relations
+// Relations (Correct FK mapping)
 ApprovedHost.belongsTo(User, { foreignKey: 'user_id' });
 ApprovedHost.belongsTo(Host, { foreignKey: 'host_id' });
 ApprovedHost.belongsTo(Property, { foreignKey: 'property_id' });

@@ -4,16 +4,9 @@ import User from "../model/User.js";
 // Save host details
 export const saveHost = async (req, res) => {
   try {
-    console.log("==== BODY ====");
-    console.log(req.body);
-
-    console.log("==== FILES ====");
-    console.log(req.files);
-
     const userId = req.user.id;
 
     const user = await User.findByPk(userId);
-
     if (!user) {
       return res.status(404).json({
         success: false,
@@ -21,11 +14,8 @@ export const saveHost = async (req, res) => {
       });
     }
 
-    const phoneFromLogin = user.phone;
-    const emailFromLogin = user.email;
-
-    const phone = phoneFromLogin || req.body.phone;
-    const email = emailFromLogin || req.body.email;
+    const phone = user.phone || req.body.phone;
+    const email = user.email || req.body.email;
 
     if (!phone || !email) {
       return res.status(400).json({
@@ -38,6 +28,8 @@ export const saveHost = async (req, res) => {
       user_id: userId,
       email,
       phone,
+
+      // SAME FIELD NAMES AS YOUR MODEL
       full_name: req.body.full_name,
       country: req.body.country,
       city: req.body.city,

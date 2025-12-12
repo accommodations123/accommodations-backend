@@ -1,18 +1,19 @@
 import Admin from "../model/Admin.js";
 import bcrypt from "bcryptjs";
-import jwt from 'jsonwebtoken';
+import jwt from "jsonwebtoken";
 
+// REGISTER ADMIN
 export const adminRegister = async (req, res) => {
   try {
     const { name, email, password } = req.body;
 
     if (!name || !email || !password) {
-      return res.status(400).json({ message: 'All fields are required' });
+      return res.status(400).json({ message: "All fields are required" });
     }
 
-    const exists = await Admin.findOne({ where: { email }});
+    const exists = await Admin.findOne({ where: { email } });
     if (exists) {
-      return res.status(400).json({ message: 'Email already exists' });
+      return res.status(400).json({ message: "Email already exists" });
     }
 
     const hashedPass = await bcrypt.hash(password, 10);
@@ -23,39 +24,45 @@ export const adminRegister = async (req, res) => {
       password: hashedPass
     });
 
-    res.json({
-      message: 'Admin registered successfully',
-      admin
+    return res.json({
+      message: "Admin registered successfully",
+      admin: {
+        id: admin.id,
+        name: admin.name,
+        email: admin.email
+      }
     });
 
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    return res.status(500).json({ message: "Server error" });
   }
 };
 
-// admin login
+
+// LOGIN ADMIN
 export const adminLogin = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    const admin = await Admin.findOne({ where: { email }});
+    const admin = await Admin.findOne({ where: { email } });
 
     if (!admin) {
-      return res.status(400).json({ message: 'Admin not found' });
+      return res.status(400).json({ message: "Admin not found" });
     }
 
     const checkPass = await bcrypt.compare(password, admin.password);
     if (!checkPass) {
-      return res.status(400).json({ message: 'Invalid password' });
+      return res.status(400).json({ message: "Invalid password" });
     }
 
     const token = jwt.sign(
-      { id: admin.id, role: 'admin' },
-      process.env.JWT_SECRET
+      { id: admin.id, role: "admin" },
+      process.env.JWT_SECRET,
+      // { expiresIn: "7d" }
     );
 
-    res.json({
-      message: 'Admin login successful',
+    return res.json({
+      message: "Admin login successful",
       token,
       admin: {
         id: admin.id,
@@ -65,6 +72,6 @@ export const adminLogin = async (req, res) => {
     });
 
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    return res.status(500).json({ message: "Server error" });
   }
 };

@@ -1,4 +1,4 @@
-import Approved from "../model/Approved.js";
+import ApprovedHost from "../model/Approved.js";
 import Property from "../model/Property.js";
 import Host from "../model/Host.js";
 import User from "../model/User.js";
@@ -6,9 +6,7 @@ import User from "../model/User.js";
 // GET approved snapshot list
 export const getApprovedList = async (req, res) => {
   try {
-    const key = "approvedPropertySnapshots";
-
-    const list = await Approved.findAll({
+    const list = await ApprovedHost.findAll({
       order: [["createdAt", "DESC"]]
     });
 
@@ -17,9 +15,10 @@ export const getApprovedList = async (req, res) => {
       title: item.property_snapshot?.title,
       city: item.property_snapshot?.city,
       country: item.property_snapshot?.country,
-      pricePerNight: item.property_snapshot?.pricePerNight,
+      pricePerNight: item.property_snapshot?.price_per_night, // FIXED
       photos: item.property_snapshot?.photos,
-      ownerName: item.host_snapshot?.fullName,
+
+      ownerName: item.host_snapshot?.full_name, // FIXED
       ownerEmail: item.host_snapshot?.email,
       ownerPhone: item.host_snapshot?.phone
     }));
@@ -27,39 +26,36 @@ export const getApprovedList = async (req, res) => {
     return res.json({ success: true, data: formatted });
 
   } catch (error) {
+    console.log("APPROVED LIST ERROR", error);
     return res.status(500).json({ message: "Server error" });
   }
 };
 
-// GET only approved properties including host info
+
+// GET approved properties with live host details
 export const getApprovedWithHosts = async (req, res) => {
   try {
-    const key = "approvedWithHosts";
-
     const properties = await Property.findAll({
       where: { status: "approved" },
       order: [["created_at", "DESC"]],
       include: [
         {
-          model: User,
-          attributes: ["id", "email"]
+          model: Host,
+          attributes: ["id", "full_name", "status", "phone"],
+          include: [
+            {
+              model: User,
+              attributes: ["id", "email"]
+            }
+          ]
         }
       ]
     });
 
-    const data = await Promise.all(
-      properties.map(async property => {
-        const host = await Host.findOne({
-          where: { user_id: property.user_id }
-        });
-
-        return { property, host };
-      })
-    );
-
-    return res.json({ success: true, data });
+    return res.json({ success: true, data: properties });
 
   } catch (err) {
+    console.log("GET APPROVED W HOSTS ERROR", err);
     return res.status(500).json({ message: "server error" });
   }
 };

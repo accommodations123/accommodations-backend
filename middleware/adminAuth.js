@@ -10,6 +10,11 @@ export default async function adminAuth(req, res, next) {
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
+    // Ensure token belongs to an admin
+    if (!decoded || decoded.role !== "admin") {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
     const admin = await Admin.findByPk(decoded.id);
     if (!admin) {
       return res.status(401).json({ message: "Admin not found" });
@@ -17,7 +22,8 @@ export default async function adminAuth(req, res, next) {
 
     req.admin = admin;
     next();
+
   } catch (err) {
-    return res.status(401).json({ message: "Invalid admin token" });
+    return res.status(401).json({ message: "Invalid or expired token" });
   }
 }
