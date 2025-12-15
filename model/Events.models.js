@@ -24,6 +24,11 @@ const Event = sequelize.define("Event", {
     type: DataTypes.TEXT,
     allowNull: true
   },
+  included_items: {
+  type: DataTypes.JSON,
+  defaultValue: []
+},
+
 
   type: {
     type: DataTypes.ENUM("public", "private", "festival", "meetup", "party", "other"),
@@ -59,6 +64,42 @@ const Event = sequelize.define("Event", {
     type: DataTypes.JSON,   // list of sessions
     defaultValue: []
   },
+  // Venue details
+venue_name: {
+  type: DataTypes.STRING,
+  allowNull: true
+},
+
+venue_description: {
+  type: DataTypes.TEXT,
+  allowNull: true
+},
+
+parking_info: {
+  type: DataTypes.STRING,
+  allowNull: true
+},
+
+accessibility_info: {
+  type: DataTypes.STRING,
+  allowNull: true
+},
+
+google_maps_url: {
+  type: DataTypes.STRING,
+  allowNull: true
+},
+
+latitude: {
+  type: DataTypes.DECIMAL(10,7),
+  allowNull: true
+},
+
+longitude: {
+  type: DataTypes.DECIMAL(10,7),
+  allowNull: true
+},
+
 
   // Media
   banner_image: DataTypes.STRING,
@@ -68,14 +109,19 @@ const Event = sequelize.define("Event", {
   },
 
   price: {
-    type: DataTypes.DECIMAL(10,2),
+    type: DataTypes.DECIMAL(10, 2),
     defaultValue: 0
   },
 
-  members_going: {
-    type: DataTypes.JSON,
-    defaultValue: []
+  // members_going: {
+  //   type: DataTypes.JSON,
+  //   defaultValue: []
+  // },
+  attendees_count: {
+    type: DataTypes.INTEGER,
+    defaultValue: 0
   },
+
 
   rating: {
     type: DataTypes.FLOAT,

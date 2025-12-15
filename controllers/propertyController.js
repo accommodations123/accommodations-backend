@@ -335,6 +335,60 @@ export const getMyListings = async (req, res) => {
   }
 };
 
+export const softDeleteProperty = async (req, res) => {
+  try {
+    const { property_id, reason } = req.body;
+    const userId = req.user.id;
+
+    if (!property_id) {
+      return res.status(400).json({ message: "property_id is required" });
+    }
+
+    const host = await Host.findOne({ where: { user_id: userId } });
+    if (!host) {
+      return res.status(403).json({ message: "Host profile not found" });
+    }
+
+    const property = await Property.findOne({
+      where: {
+        id: property_id,
+        host_id: host.id,
+        is_deleted: false
+      }
+    });
+
+    if (!property) {
+      return res.status(404).json({
+        message: "Property not found or already deleted"
+      });
+    }
+
+    await property.update({
+      is_deleted: true,
+      deleted_at: new Date(),
+      deleted_by: userId,
+      delete_reason: reason || null
+    });
+
+    // clear caches
+    await deleteCache(`property:${property_id}`);
+    await deleteCache(`host_listings:${host.id}`);
+    await deleteCache("approved_listings");
+    await deleteCache("all_properties");
+
+    return res.json({
+      success: true,
+      message: "Property deleted safely"
+    });
+
+  } catch (err) {
+    console.error("SOFT DELETE ERROR:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+
+
 
 // FRONTEND APPROVED LISTINGS
 export const getApprovedListings = async (req, res) => {
@@ -376,17 +430,72 @@ export const getApprovedListings = async (req, res) => {
 // PUBLIC — ALL PROPERTIES
 export const getAllPropertiesWithHosts = async (req, res) => {
   try {
-    const cached = await getCache("all_properties");
-    if (cached) {
-      return res.json({ success: true, data: cached });
+    // -------------------------
+    // Pagination
+    // -------------------------
+    const page = Math.max(parseInt(req.query.page) || 1, 1);
+    const limit = Math.min(parseInt(req.query.limit) || 10, 50);
+    const offset = (page - 1) * limit;
+
+    // -------------------------
+    // Filters from query
+    // -------------------------
+    const {
+      city,
+      country,
+      minPrice,
+      maxPrice
+    } = req.query;
+
+    // -------------------------
+    // WHERE clause (dynamic)
+    // -------------------------
+    const where = {
+      status: ["approved", "pending"],
+      is_deleted: false
+    };
+
+    // Location filters
+    if (city) {
+      where.city = city;
     }
 
-    const properties = await Property.findAll({
-      where: { status: ["approved", "pending"] },
+    if (country) {
+      where.country = country;
+    }
+
+    // Price range filter
+    if (minPrice || maxPrice) {
+      where.price_per_month = {};
+
+      if (minPrice) {
+        where.price_per_month[Op.gte] = Number(minPrice);
+      }
+
+      if (maxPrice) {
+        where.price_per_month[Op.lte] = Number(maxPrice);
+      }
+    }
+
+    // -------------------------
+    // Cache key (filters aware)
+    // -------------------------
+    const cacheKey = `all_properties:${page}:${limit}:${city || "all"}:${country || "all"}:${minPrice || 0}:${maxPrice || 0}`;
+
+    const cached = await getCache(cacheKey);
+    if (cached) {
+      return res.json(cached);
+    }
+
+    // -------------------------
+    // Query DB
+    // -------------------------
+    const { rows, count } = await Property.findAndCountAll({
+      where,
       include: [
         {
           model: Host,
-          attributes: ["id", "full_name", "status"],
+          attributes: ["id", "full_name", "status", "phone", "selfie_photo"],
           include: [
             {
               model: User,
@@ -394,24 +503,43 @@ export const getAllPropertiesWithHosts = async (req, res) => {
             }
           ]
         }
-      ]
+      ],
+      limit,
+      offset,
+      order: [["created_at", "DESC"]]
     });
 
-    await setCache("all_properties", properties, 300);
-
-    return res.json({
+    const response = {
       success: true,
-      data: properties
-    });
+      meta: {
+        total: count,
+        page,
+        limit,
+        totalPages: Math.ceil(count / limit)
+      },
+      filters: {
+        city: city || null,
+        country: country || null,
+        minPrice: minPrice || null,
+        maxPrice: maxPrice || null
+      },
+      data: rows
+    };
 
-  } catch (err) {
-    console.log("GET ALL PROPERTIES ERROR:", err);
+    await setCache(cacheKey, response, 300);
+
+    return res.json(response);
+
+  } catch (error) {
+    console.error("FILTERED PROPERTY ERROR:", error);
     return res.status(500).json({
       success: false,
       message: "Server error"
     });
   }
 };
+
+
 
 
 // single property
@@ -464,3 +592,4 @@ export const getPropertyById = async (req, res) => {
     });
   }
 };
+

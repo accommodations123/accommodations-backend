@@ -6,6 +6,7 @@ import {
   createEventDraft,
   updateBasicInfo,
   updateLocation,
+  updateVenue,
   updateSchedule,
   updateMedia,
   updatePricing,
@@ -36,6 +37,9 @@ router.put("/basic-info/:id", userauth, updateBasicInfo);
 
 // Update location
 router.put("/location/:id", userauth, updateLocation);
+
+// Update venue + what's included
+router.put("/venue/:id", userauth, updateVenue);
 
 // Update schedule (JSON array)
 router.put("/schedule/:id", userauth, updateSchedule);

@@ -30,7 +30,6 @@ export const saveHost = async (req, res) => {
       user_id: userId,
       email,
       phone,
-
       full_name: req.body.full_name,
       country: req.body.country,
       city: req.body.city,

@@ -56,12 +56,29 @@ const Property = sequelize.define('Property', {
   rejection_reason: {
     type: DataTypes.TEXT,
     defaultValue: ''
-  }
+  },
+  is_deleted: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false
+    },
+    deleted_at: {
+      type: DataTypes.DATE,
+      allowNull: true
+    },
+    deleted_by: {
+      type: DataTypes.INTEGER,
+      allowNull: true
+    },
+    delete_reason: {
+      type: DataTypes.STRING,
+      allowNull: true
+    }
 
 }, {
   tableName: 'properties',
   timestamps: true,
   underscored: true,
+  
   
    //  indexes
   indexes: [
@@ -70,7 +87,8 @@ const Property = sequelize.define('Property', {
     { fields: ['city'] },
     { fields: ['country'] },
     { fields: ['category_id'] },
-    { fields: ['property_type'] }
+    { fields: ['property_type'] },
+    { fields: ['is_deleted']}
   ]
 });
 

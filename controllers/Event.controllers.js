@@ -33,6 +33,7 @@ export const createEventDraft = async (req, res) => {
       host_id: host.id,
       title,
       type,
+      selfie_photo,
       start_date,
       start_time,
       status: "draft"
@@ -130,6 +131,47 @@ export const updateSchedule = async (req, res) => {
     return res.status(500).json({ message: "Server error" });
   }
 };
+
+// ======================================================
+// UPDATE VENUE + WHAT'S INCLUDED
+// ======================================================
+export const updateVenue = async (req, res) => {
+  try {
+    const event = await Event.findByPk(req.params.id);
+
+    if (!event) {
+      return res.status(404).json({
+        success: false,
+        message: "Event not found"
+      });
+    }
+
+    await event.update({
+      venue_name: req.body.venue_name,
+      venue_description: req.body.venue_description,
+      parking_info: req.body.parking_info,
+      accessibility_info: req.body.accessibility_info,
+      latitude: req.body.latitude,
+      longitude: req.body.longitude,
+      google_maps_url: req.body.google_maps_url,
+      included_items: req.body.included_items
+    });
+
+    await deleteCache(`event:${event.id}`);
+    await deleteCache("approved_events");
+
+    return res.json({
+      success: true,
+      message: "Venue and included items updated",
+      event
+    });
+
+  } catch (err) {
+    console.error("Update venue error:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
 
 // ======================================================
 // 5. UPDATE MEDIA
@@ -310,7 +352,7 @@ export const getApprovedEvents = async (req, res) => {
 
     const events = await Event.findAll({
       where: { status: "approved" },
-      include: [{ model: Host, attributes: ["id", "full_name", "status"] }]
+      include: [{ model: Host, attributes: ["id", "full_name","selfie_photo","phone","email","status"] }]
     });
 
     await setCache("approved_events", events, 300);
@@ -360,7 +402,7 @@ export const getEventById = async (req, res) => {
     }
 
     const event = await Event.findByPk(req.params.id, {
-      include: [{ model: Host, attributes: ["id", "full_name", "status"] }]
+      include: [{ model: Host, attributes: ["id", "full_name","selfie_photo","phone","email","status"] }]
     });
 
     if (!event) {
@@ -379,29 +421,29 @@ export const getEventById = async (req, res) => {
 // ======================================================
 // JOIN EVENT
 // ======================================================
+
 export const joinEvent = async (req, res) => {
   try {
     const event = await Event.findByPk(req.params.id);
 
-    if (!event) return res.status(404).json({ message: "Event not found" });
-
-    const userId = req.user.id;
-    const members = event.members_going;
-
-    if (!members.includes(userId)) {
-      members.push(userId);
-      event.members_going = members;
-      await event.save();
+    if (!event) {
+      return res.status(404).json({ message: "Event not found" });
     }
 
-    await deleteCache(`event:${event.id}`);
+    await event.increment("attendees_count");
 
-    return res.json({ success: true, message: "Joined event" });
+    return res.json({
+      success: true,
+      message: "Joined event",
+      attendees_count: event.attendees_count + 1
+    });
 
   } catch (err) {
+    console.error(err);
     return res.status(500).json({ message: "Server error" });
   }
 };
+
 
 // ======================================================
 // LEAVE EVENT
@@ -410,17 +452,23 @@ export const leaveEvent = async (req, res) => {
   try {
     const event = await Event.findByPk(req.params.id);
 
-    if (!event) return res.status(404).json({ message: "Event not found" });
+    if (!event) {
+      return res.status(404).json({ message: "Event not found" });
+    }
 
-    const userId = req.user.id;
-    event.members_going = event.members_going.filter(id => id !== userId);
-    await event.save();
+    if (event.attendees_count > 0) {
+      await event.decrement("attendees_count");
+    }
 
-    await deleteCache(`event:${event.id}`);
-
-    return res.json({ success: true, message: "Left event" });
+    return res.json({
+      success: true,
+      message: "Left event",
+      attendees_count: Math.max(event.attendees_count - 1, 0)
+    });
 
   } catch (err) {
+    console.error(err);
     return res.status(500).json({ message: "Server error" });
   }
 };
+

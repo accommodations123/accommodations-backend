@@ -11,6 +11,7 @@ import {
   savePricing,
   submitProperty,
   getMyListings,
+  softDeleteProperty,
   getApprovedListings,
   getPropertyById,
   getAllPropertiesWithHosts
@@ -46,12 +47,13 @@ router.put("/submit/:id", userauth, submitProperty);
 
 // Host Listings
 router.get("/my-listings", userauth, getMyListings);
+router.delete("/delete", userauth, softDeleteProperty);
 
 // Public Listings
 router.get("/approved", getApprovedListings);
 router.get("/all", getAllPropertiesWithHosts);
 
 // Always keep this last
-router.get("/:id", getPropertyById);
+router.get("/:id", getPropertyById); 
 
 export default router;
