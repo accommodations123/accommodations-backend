@@ -20,7 +20,7 @@ export const createEventDraft = async (req, res) => {
       });
     }
 
-    const { title, type, start_date, start_time } = req.body;
+    const { title, type, start_date, start_time,event_mode,event_url,online_instructions } = req.body;
 
     if (!title || !start_date || !start_time) {
       return res.status(400).json({
@@ -64,23 +64,12 @@ export const updateBasicInfo = async (req, res) => {
       return res.status(404).json({ success: false, message: "Event not found" });
     }
 
-     const {
-      title,
-      description,
-      type,
-      event_mode,
-      event_url,
-      online_instructions
-    } = req.body;
-
     await event.update({
-      title,
-      description,
-      type,
-      event_mode,
-      event_url,
-      online_instructions
+      title: req.body.title,
+      description: req.body.description,
+      type: req.body.type
     });
+
     // Invalidate caches
     await deleteCache(`event:${event.id}`);
     await deleteCache("approved_events");
@@ -156,23 +145,60 @@ export const updateVenue = async (req, res) => {
       });
     }
 
-    await event.update({
-      venue_name: req.body.venue_name,
-      venue_description: req.body.venue_description,
-      parking_info: req.body.parking_info,
-      accessibility_info: req.body.accessibility_info,
-      latitude: req.body.latitude,
-      longitude: req.body.longitude,
-      google_maps_url: req.body.google_maps_url,
-      included_items: req.body.included_items
-    });
+    const {
+      venue_name,
+      venue_description,
+      parking_info,
+      accessibility_info,
+      latitude,
+      longitude,
+      google_maps_url,
+      included_items,
+      event_mode,
+      event_url,
+      online_instructions
+    } = req.body;
+
+    const updateData = {
+      venue_name,
+      venue_description,
+      parking_info,
+      accessibility_info,
+      latitude,
+      longitude,
+      google_maps_url,
+      included_items,
+      event_mode
+    };
+
+    // Handle online / hybrid logic
+    if (event_mode === "online" || event_mode === "hybrid") {
+      updateData.event_url = event_url;
+      updateData.online_instructions = online_instructions;
+    } else {
+      updateData.event_url = null;
+      updateData.online_instructions = null;
+    }
+
+    // Handle offline logic
+    if (event_mode === "online") {
+      updateData.venue_name = null;
+      updateData.venue_description = null;
+      updateData.parking_info = null;
+      updateData.accessibility_info = null;
+      updateData.latitude = null;
+      updateData.longitude = null;
+      updateData.google_maps_url = null;
+    }
+
+    await event.update(updateData);
 
     await deleteCache(`event:${event.id}`);
     await deleteCache("approved_events");
 
     return res.json({
       success: true,
-      message: "Venue and included items updated",
+      message: "Venue and event mode updated successfully",
       event
     });
 
@@ -181,6 +207,7 @@ export const updateVenue = async (req, res) => {
     return res.status(500).json({ message: "Server error" });
   }
 };
+
 
 
 // ======================================================
