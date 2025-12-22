@@ -8,6 +8,7 @@ import { Op } from "sequelize";
 export const createBuySellListing = async (req, res) => {
   try {
     const userId = req.user.id;
+    const userEmail = req.user.email;
 
     const {
       title,
@@ -17,7 +18,6 @@ export const createBuySellListing = async (req, res) => {
       description,
       location,
       name,
-      email,
       phone
     } = req.body;
 
@@ -28,7 +28,6 @@ export const createBuySellListing = async (req, res) => {
       !description ||
       !location ||
       !name ||
-      !email ||
       !phone
     ) {
       return res.status(400).json({
@@ -48,7 +47,7 @@ export const createBuySellListing = async (req, res) => {
       description,
       location,
       name,
-      email,
+      email :userEmail,
       phone,
       images: galleryImages,
       status: "pending"
