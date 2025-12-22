@@ -18,6 +18,7 @@ import adminPropertyRoutes from "./routes/adminPropertyRoutes.js";
 import adminApprovedRoutes from "./routes/approved.js";
 import EventsRoutes from './routes/Events.routes.js'
 import eventReviewRoutes from './routes/EventsReviews.Routes.js'
+import buySellRoutes from './routes/buySellRoutes.js'
 (async () => {
   try {
     await sequelize.authenticate();
@@ -38,6 +39,7 @@ import eventReviewRoutes from './routes/EventsReviews.Routes.js'
     app.use("/admin/approved", adminApprovedRoutes);
     app.use("/events",EventsRoutes)
     app.use("/events/reviews", eventReviewRoutes);
+    app.use('/buy-sell',buySellRoutes)
 
 
     const PORT = process.env.PORT || 5000;

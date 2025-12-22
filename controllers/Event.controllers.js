@@ -2,6 +2,8 @@ import Event from "../model/Events.models.js";
 import Host from "../model/Host.js";
 import User from "../model/User.js";
 import sequelize from "../config/db.js";
+import EventParticipant from "../model/EventParticipant.js";
+import { createNotification } from "../services/notificationService.js";
 
 import { getCache, setCache, deleteCache } from "../services/cacheService.js";
 
@@ -20,7 +22,7 @@ export const createEventDraft = async (req, res) => {
       });
     }
 
-    const { title, type, start_date, start_time,event_mode,event_url,online_instructions } = req.body;
+    const { title, type, start_date, start_time, event_mode, event_url, online_instructions } = req.body;
 
     if (!title || !start_date || !start_time) {
       return res.status(400).json({
@@ -389,7 +391,7 @@ export const getApprovedEvents = async (req, res) => {
 
     const events = await Event.findAll({
       where: { status: "approved" },
-      include: [{ model: Host, attributes: ["id", "full_name","selfie_photo","phone","email","status"] }]
+      include: [{ model: Host, attributes: ["id", "full_name", "selfie_photo", "phone", "email", "status"] }]
     });
 
     await setCache("approved_events", events, 300);
@@ -439,7 +441,7 @@ export const getEventById = async (req, res) => {
     }
 
     const event = await Event.findByPk(req.params.id, {
-      include: [{ model: Host, attributes: ["id", "full_name","selfie_photo","phone","email","status"] }]
+      include: [{ model: Host, attributes: ["id", "full_name", "selfie_photo", "phone", "email", "status"] }]
     });
 
     if (!event) {
@@ -461,51 +463,136 @@ export const getEventById = async (req, res) => {
 
 export const joinEvent = async (req, res) => {
   try {
-    const event = await Event.findByPk(req.params.id);
+    const eventId = req.params.id;
+    const userId = req.user.id;
 
+    const event = await Event.findByPk(eventId);
     if (!event) {
       return res.status(404).json({ message: "Event not found" });
     }
 
+    // Prevent duplicate join
+    const alreadyJoined = await EventParticipant.findOne({
+      where: { event_id: eventId, user_id: userId }
+    });
+
+    if (alreadyJoined) {
+      return res.status(400).json({
+        message: "You have already joined this event"
+      });
+    }
+
+    // Create participant record
+    await EventParticipant.create({
+      event_id: eventId,
+      user_id: userId
+    });
+
+    // Increment count
     await event.increment("attendees_count");
+
+    const newCount = event.attendees_count + 1;
+
+    // 🔔 Notify only at milestones
+    const milestones = [1, 10, 25, 50, 100];
+
+    if (milestones.includes(newCount)) {
+      try {
+        await createNotification({
+          userId: event.host_id,
+          title: "Event Update",
+          message: `${newCount} people have joined your event`,
+          type: "event_milestone",
+          entityId: event.id
+        });
+      } catch (err) {
+        console.error("NOTIFICATION ERROR:", err);
+      }
+    }
 
     return res.json({
       success: true,
       message: "Joined event",
-      attendees_count: event.attendees_count + 1
+      attendees_count: newCount
     });
 
   } catch (err) {
-    console.error(err);
+    console.error("JOIN EVENT ERROR:", err);
     return res.status(500).json({ message: "Server error" });
   }
 };
 
-
 // ======================================================
 // LEAVE EVENT
 // ======================================================
+
 export const leaveEvent = async (req, res) => {
   try {
-    const event = await Event.findByPk(req.params.id);
+    const eventId = req.params.id;
+    const userId = req.user.id;
 
+    // Check participant
+    const participant = await EventParticipant.findOne({
+      where: { event_id: eventId, user_id: userId }
+    });
+
+    if (!participant) {
+      return res.status(400).json({
+        message: "You have not joined this event"
+      });
+    }
+
+    // Remove participant
+    await participant.destroy();
+
+    // Get event
+    const event = await Event.findByPk(eventId);
     if (!event) {
       return res.status(404).json({ message: "Event not found" });
     }
 
-    if (event.attendees_count > 0) {
-      await event.decrement("attendees_count");
+    // Decrement count
+    await event.decrement("attendees_count");
+
+    const newCount = Math.max(event.attendees_count - 1, 0);
+
+    // 🔔 Notify only at meaningful LEAVE milestones
+    const leaveMilestones = [0, 9, 24, 49];
+
+    if (leaveMilestones.includes(newCount)) {
+      try {
+        let message = "People left your event";
+
+        if (newCount === 0) {
+          message = "Your event now has no attendees";
+        } else {
+          message = `Attendee count dropped to ${newCount}`;
+        }
+
+        await createNotification({
+          userId: event.host_id,
+          title: "Event Update",
+          message,
+          type: "event_leave_milestone",
+          entityId: event.id
+        });
+      } catch (err) {
+        console.error("NOTIFICATION ERROR (LEAVE):", err);
+      }
     }
 
     return res.json({
       success: true,
       message: "Left event",
-      attendees_count: Math.max(event.attendees_count - 1, 0)
+      attendees_count: newCount
     });
 
   } catch (err) {
-    console.error(err);
+    console.error("LEAVE EVENT ERROR:", err);
     return res.status(500).json({ message: "Server error" });
   }
 };
+
+
+
 
