@@ -394,15 +394,24 @@ export const softDeleteProperty = async (req, res) => {
 // FRONTEND APPROVED LISTINGS
 export const getApprovedListings = async (req, res) => {
   try {
-    const cached = await getCache("approved_listings");
+    const { country, city, zip_code } = req.query;
+
+    const cacheKey = `approved_listings:${country || "all"}:${city || "all"}:${zip_code || "all"}`;
+    const cached = await getCache(cacheKey);
     if (cached) {
       return res.json({ success: true, properties: cached });
     }
 
+    const where = {
+      status: ["approved", "pending"]
+    };
+
+    if (country) where.country = country;
+    if (city) where.city = city;
+    if (zip_code) where.zip_code = zip_code;
+
     const properties = await Property.findAll({
-      where: {
-        status: ["approved", "pending"]
-      },
+      where,
       include: [
         {
           model: Host,
@@ -417,7 +426,7 @@ export const getApprovedListings = async (req, res) => {
       ]
     });
 
-    await setCache("approved_listings", properties, 300);
+    await setCache(cacheKey, properties, 300);
 
     return res.json({ success: true, properties });
 
@@ -426,6 +435,7 @@ export const getApprovedListings = async (req, res) => {
     return res.status(500).json({ message: "Server error" });
   }
 };
+
 
 
 // PUBLIC — ALL PROPERTIES
