@@ -63,10 +63,12 @@ export const getApprovedList = async (req, res) => {
 // GET approved properties with live host details
 export const getApprovedWithHosts = async (req, res) => {
   try {
-    const country = normalize(req.headers["x-country"] || req.query.country);
-    const state = normalize(req.headers["x-state"] || req.query.state);
-    const city = normalize(req.headers["x-city"] || req.query.city);
-    const zip_code = normalize(req.headers["x-zip-code"] || req.query.zip_code);
+    console.log("➡️ getApprovedWithHosts HIT");
+
+    const country = req.headers["x-country"] || req.query.country || null;
+    const state = req.headers["x-state"] || req.query.state || null;
+    const city = req.headers["x-city"] || req.query.city || null;
+    const zip_code = req.headers["x-zip-code"] || req.query.zip_code || null;
 
     const cacheKey =
       `approved_properties_with_hosts:${country || "all"}:${state || "all"}:${city || "all"}:${zip_code || "all"}`;
@@ -107,14 +109,17 @@ export const getApprovedWithHosts = async (req, res) => {
       ]
     });
 
-    await setCache(cacheKey, properties, 300);
+    const plain = properties.map(p => p.toJSON());
 
-    return res.json({ success: true, data: properties });
+    await setCache(cacheKey, plain, 300);
+
+    return res.json({ success: true, data: plain });
 
   } catch (err) {
-    console.log("GET APPROVED W HOSTS ERROR", err);
+    console.error("GET APPROVED W HOSTS ERROR:", err);
     return res.status(500).json({ message: "server error" });
   }
 };
+
 
 
