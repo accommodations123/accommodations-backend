@@ -31,7 +31,7 @@ const Property = sequelize.define('Property', {
   country: DataTypes.STRING,
   state: {                        // ✅ ADDED
   type: DataTypes.STRING(100),
-  allowNull: false
+  allowNull: true
 },
   city: DataTypes.STRING,
    zip_code: {
@@ -40,7 +40,7 @@ const Property = sequelize.define('Property', {
   },
   street_address: {               // ✅ ADDED
   type: DataTypes.TEXT,
-  allowNull: false
+  allowNull: true
 },
 
   photos: DataTypes.JSON,
