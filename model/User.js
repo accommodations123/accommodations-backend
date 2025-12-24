@@ -15,6 +15,11 @@ const User = sequelize.define('User', {
   otp: {
     type: DataTypes.STRING
   },
+  phone: {
+    type: DataTypes.STRING(20),
+    unique:true,
+    allowNull:true
+  },
   otpExpires: {
     type: DataTypes.DATE,
     field: 'otp_expires',
@@ -27,7 +32,14 @@ const User = sequelize.define('User', {
 }, {
   tableName: 'users',
   timestamps: true,
-  underscored: true
+  underscored: true,
+  validate: {
+    emailOrPhoneRequired() {
+      if (!this.email && !this.phone) {
+        throw new Error('Either email or phone required')
+      }
+    }
+  }
 });
 
 export default User;

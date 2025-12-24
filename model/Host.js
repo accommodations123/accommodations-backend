@@ -25,6 +25,10 @@ const Host = sequelize.define('Host', {
     type: DataTypes.STRING,
     allowNull: false
   },
+  state: {                      // ✅ ADDED
+    type: DataTypes.STRING(100),
+    allowNull: false
+  },
   city: {
     type: DataTypes.STRING,
     allowNull: false
@@ -33,8 +37,8 @@ const Host = sequelize.define('Host', {
     type: DataTypes.STRING(20),
     allowNull:true
   },
-  address: {
-    type: DataTypes.STRING,
+  street_address: {             // ✅ ADDED
+    type: DataTypes.TEXT,
     allowNull: false
   },
 
@@ -68,10 +72,11 @@ const Host = sequelize.define('Host', {
   timestamps: true,
   underscored: true,
   indexes: [
-  { fields: ['country'] },
-  { fields: ['country', 'city'] },
-  { fields: ['country', 'city', 'zip_code'] }
-]
+    { fields: ["country"] },
+    { fields: ["country", "state"] },
+    { fields: ["country", "state", "city"] },
+    { fields: ["country", "state", "city", "zip_code"] }
+  ]
 
 });
 

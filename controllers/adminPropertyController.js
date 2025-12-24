@@ -2,22 +2,24 @@ import Property from "../model/Property.js";
 import Host from "../model/Host.js";
 import User from "../model/User.js";
 
-import { getCache, setCache, deleteCache } from "../services/cacheService.js";
+import { getCache, setCache, deleteCacheByPrefix } from "../services/cacheService.js";
 
-// GET pending properties (admin)
 export const getPendingProperties = async (req, res) => {
   try {
-    console.log("FETCHING PENDING PROPERTIES...");
+    const { country, state } = req.query;
 
-    // Try Redis cache first
-    const cached = await getCache("pending_properties");
+    const cacheKey = `pending_properties:${country || "all"}:${state || "all"}`;
+    const cached = await getCache(cacheKey);
     if (cached) {
-      console.log("RETURNING CACHED PENDING PROPERTIES");
       return res.json({ success: true, data: cached });
     }
 
+    const where = { status: "pending" };
+    if (country) where.country = country;
+    if (state) where.state = state;
+
     const properties = await Property.findAll({
-      where: { status: "pending" },
+      where,
       order: [["created_at", "DESC"]],
       include: [
         {
@@ -33,8 +35,6 @@ export const getPendingProperties = async (req, res) => {
       ]
     });
 
-    console.log("PROPERTIES FOUND:", properties.length);
-
     const data = properties.map(property => ({
       property,
       owner: {
@@ -44,16 +44,15 @@ export const getPendingProperties = async (req, res) => {
       }
     }));
 
-    // Store in Redis cache for 5 minutes
-    await setCache("pending_properties", data, 300);
+    await setCache(cacheKey, data, 300);
 
     return res.json({ success: true, data });
 
   } catch (err) {
-    console.log("PENDING ERROR:", err);
     return res.status(500).json({ message: "Server error" });
   }
 };
+
 
 
 // APPROVE property
@@ -67,9 +66,9 @@ export const approveProperty = async (req, res) => {
     await property.save();
 
     // Invalidate related caches
-    await deleteCache("pending_properties");
-    await deleteCache("property_status_stats");
-    await deleteCache("property_country_stats");
+    await deleteCacheByPrefix("pending_properties");
+    await deleteCacheByPrefix("property_status_stats");
+    await deleteCacheByPrefix("property_country_stats");
 
     return res.json({ success: true, message: "Property approved" });
 
@@ -91,8 +90,8 @@ export const rejectProperty = async (req, res) => {
     await property.save();
 
     // Invalidate caches
-    await deleteCache("pending_properties");
-    await deleteCache("property_status_stats");
+    await deleteCacheByPrefix("pending_properties");
+    await deleteCacheByPrefix("property_status_stats");
 
     return res.json({ success: true, message: "Property rejected" });
 
@@ -106,12 +105,21 @@ export const rejectProperty = async (req, res) => {
 // DELETE property
 export const deleteProperty = async (req, res) => {
   try {
-    await Property.destroy({ where: { id: req.params.id } });
+    await Property.update(
+      {
+        is_deleted: true,
+        deleted_at: new Date(),
+        deleted_by: req.admin.id || null,
+        delete_reason: "Admin deleted"
+      },
+      { where: { id: req.params.id } }
+    );
+
 
     // Invalidate caches
-    await deleteCache("pending_properties");
-    await deleteCache("property_status_stats");
-    await deleteCache("property_country_stats");
+    await deleteCacheByPrefix("pending_properties");
+    await deleteCacheByPrefix("property_status_stats");
+    await deleteCacheByPrefix("property_country_stats");
 
     return res.json({ success: true, message: "Property deleted" });
 
@@ -125,18 +133,40 @@ export const deleteProperty = async (req, res) => {
 // simple admin aggregation
 export const getPropertyStatusStats = async (req, res) => {
   try {
-    // Check cache
-    const cached = await getCache("property_status_stats");
-    if (cached) return res.json({ success: true, stats: cached });
+    const { country, state } = req.query;
 
-    const [stats] = await Property.sequelize.query(`
-      SELECT status, COUNT(*) as total
-      FROM properties
-      GROUP BY status
-    `);
+    const cacheKey =
+      `property_status_stats:${country || "all"}:${state || "all"}`;
 
-    // Cache 5 minutes
-    await setCache("property_status_stats", stats, 300);
+    const cached = await getCache(cacheKey);
+    if (cached) {
+      return res.json({ success: true, stats: cached });
+    }
+
+    let where = "";
+    const replacements = {};
+
+    if (country) {
+      where += " WHERE country = :country";
+      replacements.country = country;
+    }
+
+    if (state) {
+      where += where ? " AND state = :state" : " WHERE state = :state";
+      replacements.state = state;
+    }
+
+    const [stats] = await Property.sequelize.query(
+      `
+        SELECT status, COUNT(*) as total
+        FROM properties
+        ${where}
+        GROUP BY status
+      `,
+      { replacements }
+    );
+
+    await setCache(cacheKey, stats, 300);
 
     return res.json({ success: true, stats });
 
@@ -147,20 +177,44 @@ export const getPropertyStatusStats = async (req, res) => {
 };
 
 
+
 // property stats aggregation
 export const getPropertyStats = async (req, res) => {
   try {
-    const cached = await getCache("property_country_stats");
-    if (cached) return res.json({ success: true, stats: cached });
+    const { country, state } = req.query;
 
-    const [stats] = await Property.sequelize.query(`
-      SELECT country, COUNT(*) as total
-      FROM properties
-      WHERE status = 'approved'
-      GROUP BY country
-    `);
+    const cacheKey =
+      `property_country_stats:${country || "all"}:${state || "all"}`;
 
-    await setCache("property_country_stats", stats, 300);
+    const cached = await getCache(cacheKey);
+    if (cached) {
+      return res.json({ success: true, stats: cached });
+    }
+
+    let where = "WHERE status = 'approved'";
+    const replacements = {};
+
+    if (country) {
+      where += " AND country = :country";
+      replacements.country = country;
+    }
+
+    if (state) {
+      where += " AND state = :state";
+      replacements.state = state;
+    }
+
+    const [stats] = await Property.sequelize.query(
+      `
+        SELECT country, COUNT(*) as total
+        FROM properties
+        ${where}
+        GROUP BY country
+      `,
+      { replacements }
+    );
+
+    await setCache(cacheKey, stats, 300);
 
     return res.json({ success: true, stats });
 
@@ -171,19 +225,44 @@ export const getPropertyStats = async (req, res) => {
 };
 
 
+
 // simple host aggregation
 export const getHostStats = async (req, res) => {
   try {
-    const cached = await getCache("host_stats");
-    if (cached) return res.json({ success: true, stats: cached });
+    const { country, state } = req.query;
 
-    const [stats] = await Host.sequelize.query(`
-      SELECT status, COUNT(*) as total
-      FROM hosts
-      GROUP BY status
-    `);
+    const cacheKey =
+      `host_stats:${country || "all"}:${state || "all"}`;
 
-    await setCache("host_stats", stats, 300);
+    const cached = await getCache(cacheKey);
+    if (cached) {
+      return res.json({ success: true, stats: cached });
+    }
+
+    let where = "";
+    const replacements = {};
+
+    if (country) {
+      where += " WHERE country = :country";
+      replacements.country = country;
+    }
+
+    if (state) {
+      where += where ? " AND state = :state" : " WHERE state = :state";
+      replacements.state = state;
+    }
+
+    const [stats] = await Host.sequelize.query(
+      `
+        SELECT status, COUNT(*) as total
+        FROM hosts
+        ${where}
+        GROUP BY status
+      `,
+      { replacements }
+    );
+
+    await setCache(cacheKey, stats, 300);
 
     return res.json({ success: true, stats });
 
@@ -192,3 +271,4 @@ export const getHostStats = async (req, res) => {
     return res.status(500).json({ message: "Server error" });
   }
 };
+

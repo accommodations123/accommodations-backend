@@ -45,6 +45,10 @@ const BuySellListing = sequelize.define(
             type: DataTypes.STRING(100),
             allowNull: false
         },
+        street_address: {               // ✅ ADDED
+            type: DataTypes.TEXT,
+            allowNull: false
+        },
 
         city: {
             type: DataTypes.STRING(100),
@@ -54,6 +58,10 @@ const BuySellListing = sequelize.define(
         zip_code: {
             type: DataTypes.STRING(20),
             allowNull: true
+        },
+        state: {                        // ✅ ADDED
+            type: DataTypes.STRING(100),
+            allowNull: false
         },
 
 
@@ -102,11 +110,14 @@ const BuySellListing = sequelize.define(
             { fields: ["category", "status"] },
             { fields: ["status", "created_at"] },
             { fields: ["price"] },
-            // ✅ Location indexes
+
+            // Location indexes
             { fields: ["country"] },
-            { fields: ["country", "city"] },
-            { fields: ["country", "city", "zip_code"] }
+            { fields: ["country", "state"] },
+            { fields: ["country", "state", "city"] },
+            { fields: ["country", "state", "city", "zip_code"] }
         ]
+
     }
 );
 

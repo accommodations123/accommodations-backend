@@ -8,9 +8,14 @@ import { getCache, setCache } from "../services/cacheService.js";
 // GET approved snapshot list
 export const getApprovedList = async (req, res) => {
   try {
-    const { country, city, zip_code } = req.query;
+    const country = normalize(req.headers["x-country"] || req.query.country);
+    const state = normalize(req.headers["x-state"] || req.query.state);
+    const city = normalize(req.headers["x-city"] || req.query.city);
+    const zip_code = normalize(req.headers["x-zip-code"] || req.query.zip_code);
 
-    const cacheKey = `approved_snapshot_list:${country || "all"}:${city || "all"}:${zip_code || "all"}`;
+    const cacheKey =
+      `approved_snapshot_list:${country || "all"}:${state || "all"}:${city || "all"}:${zip_code || "all"}`;
+
     const cached = await getCache(cacheKey);
     if (cached) {
       return res.json({ success: true, data: cached });
@@ -18,6 +23,7 @@ export const getApprovedList = async (req, res) => {
 
     const where = {};
     if (country) where["property_snapshot.country"] = country;
+    if (state) where["property_snapshot.state"] = state;
     if (city) where["property_snapshot.city"] = city;
     if (zip_code) where["property_snapshot.zip_code"] = zip_code;
 
@@ -29,9 +35,11 @@ export const getApprovedList = async (req, res) => {
     const formatted = list.map(item => ({
       propertyId: item.property_id,
       title: item.property_snapshot?.title,
-      city: item.property_snapshot?.city,
       country: item.property_snapshot?.country,
+      state: item.property_snapshot?.state,
+      city: item.property_snapshot?.city,
       zip_code: item.property_snapshot?.zip_code,
+      street_address: item.property_snapshot?.street_address,
       pricePerNight: item.property_snapshot?.price_per_night,
       photos: item.property_snapshot?.photos,
       ownerName: item.host_snapshot?.full_name,
@@ -51,12 +59,18 @@ export const getApprovedList = async (req, res) => {
 
 
 
+
 // GET approved properties with live host details
 export const getApprovedWithHosts = async (req, res) => {
   try {
-    const { country, city, zip_code } = req.query;
+    const country = normalize(req.headers["x-country"] || req.query.country);
+    const state = normalize(req.headers["x-state"] || req.query.state);
+    const city = normalize(req.headers["x-city"] || req.query.city);
+    const zip_code = normalize(req.headers["x-zip-code"] || req.query.zip_code);
 
-    const cacheKey = `approved_properties_with_hosts:${country || "all"}:${city || "all"}:${zip_code || "all"}`;
+    const cacheKey =
+      `approved_properties_with_hosts:${country || "all"}:${state || "all"}:${city || "all"}:${zip_code || "all"}`;
+
     const cached = await getCache(cacheKey);
     if (cached) {
       return res.json({ success: true, data: cached });
@@ -64,6 +78,7 @@ export const getApprovedWithHosts = async (req, res) => {
 
     const where = { status: "approved" };
     if (country) where.country = country;
+    if (state) where.state = state;
     if (city) where.city = city;
     if (zip_code) where.zip_code = zip_code;
 
@@ -73,7 +88,15 @@ export const getApprovedWithHosts = async (req, res) => {
       include: [
         {
           model: Host,
-          attributes: ["id", "full_name", "status", "phone"],
+          attributes: [
+            "id",
+            "full_name",
+            "status",
+            "phone",
+            "country",
+            "state",
+            "city"
+          ],
           include: [
             {
               model: User,
@@ -93,4 +116,5 @@ export const getApprovedWithHosts = async (req, res) => {
     return res.status(500).json({ message: "server error" });
   }
 };
+
 

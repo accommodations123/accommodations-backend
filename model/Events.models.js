@@ -25,9 +25,9 @@ const Event = sequelize.define("Event", {
     allowNull: true
   },
   included_items: {
-  type: DataTypes.JSON,
-  defaultValue: []
-},
+    type: DataTypes.JSON,
+    defaultValue: []
+  },
 
 
   type: {
@@ -37,10 +37,19 @@ const Event = sequelize.define("Event", {
 
   // Location
   country: DataTypes.STRING,
+  state: {                        // ✅ ADDED
+    type: DataTypes.STRING(100),
+    allowNull: false
+  },
   city: DataTypes.STRING,
-   zip_code: {
+  zip_code: {
     type: DataTypes.STRING(20),
     allowNull: true
+  },
+
+  street_address: {               // ✅ ADDED
+    type: DataTypes.TEXT,
+    allowNull: false
   },
   address: DataTypes.STRING,
   landmark: DataTypes.STRING,
@@ -69,40 +78,40 @@ const Event = sequelize.define("Event", {
     defaultValue: []
   },
   // Venue details
-venue_name: {
-  type: DataTypes.STRING,
-  allowNull: true
-},
+  venue_name: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
 
-venue_description: {
-  type: DataTypes.TEXT,
-  allowNull: true
-},
+  venue_description: {
+    type: DataTypes.TEXT,
+    allowNull: true
+  },
 
-parking_info: {
-  type: DataTypes.STRING,
-  allowNull: true
-},
+  parking_info: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
 
-accessibility_info: {
-  type: DataTypes.STRING,
-  allowNull: true
-},
+  accessibility_info: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
 
-google_maps_url: {
-  type: DataTypes.STRING,
-  allowNull: true
-},
+  google_maps_url: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
 
-latitude: {
-  type: DataTypes.DECIMAL(10,7),
-  allowNull: true
-},
+  latitude: {
+    type: DataTypes.DECIMAL(10, 7),
+    allowNull: true
+  },
 
-longitude: {
-  type: DataTypes.DECIMAL(10,7),
-  allowNull: true
-},
+  longitude: {
+    type: DataTypes.DECIMAL(10, 7),
+    allowNull: true
+  },
 
 
   // Media
@@ -142,36 +151,37 @@ longitude: {
     defaultValue: ""
   },
   // Event type (online / offline / hybrid)
-event_mode: {
-  type: DataTypes.ENUM("offline", "online", "hybrid"),
-  defaultValue: "offline"
-},
+  event_mode: {
+    type: DataTypes.ENUM("offline", "online", "hybrid"),
+    defaultValue: "offline"
+  },
 
-// Online event URL (Zoom / Meet / custom)
-event_url: {
-  type: DataTypes.STRING,
-  allowNull: true
-},
+  // Online event URL (Zoom / Meet / custom)
+  event_url: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
 
-// Optional joining instructions
-online_instructions: {
-  type: DataTypes.TEXT,
-  allowNull: true
-}
+  // Optional joining instructions
+  online_instructions: {
+    type: DataTypes.TEXT,
+    allowNull: true
+  }
 
 
 }, {
   tableName: "events",
   timestamps: true,
   underscored: true,
-    indexes: [
-    { fields: ["host_id"] },
-    { fields: ["status"] },
-    { fields: ["country"] },
-    { fields: ["city"] },
-    { fields: ["zip_code"] },                 // ✅ ADDED
-    { fields: ["country", "city", "zip_code"] } // ✅ ADDED
-  ]
+ indexes: [
+  { fields: ["host_id"] },
+  { fields: ["status"] },
+  { fields: ["country"] },
+  { fields: ["country", "state"] },
+  { fields: ["country", "state", "city"] },
+  { fields: ["country", "state", "city", "zip_code"] }
+]
+
 });
 
 Event.belongsTo(Host, { foreignKey: "host_id" });

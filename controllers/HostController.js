@@ -1,7 +1,7 @@
 import Host from "../model/Host.js";
 import User from "../model/User.js";
 
-import { getCache, setCache, deleteCache } from "../services/cacheService.js";
+import { getCache, setCache, deleteCacheByPrefix } from "../services/cacheService.js";
 
 // Save host details
 export const saveHost = async (req, res) => {
@@ -25,6 +25,11 @@ export const saveHost = async (req, res) => {
         message: "Phone and email are required."
       });
     }
+    const existing = await Host.findOne({ where: { user_id: userId } });
+    if (existing) {
+      return res.status(400).json({ message: "Host profile already exists" });
+    }
+
 
     const data = await Host.create({
       user_id: userId,
@@ -32,9 +37,10 @@ export const saveHost = async (req, res) => {
       phone,
       full_name: req.body.full_name,
       country: req.body.country,
+      state: req.body.state,
       city: req.body.city,
       zip_code: req.body.zip_code || null,
-      address: req.body.address,
+      street_address: req.body.street_address,
       id_type: req.body.id_type,
       id_number: req.body.id_number,
 
@@ -43,8 +49,8 @@ export const saveHost = async (req, res) => {
     });
 
     // Invalidate caches
-    await deleteCache(`host:${userId}`);
-    await deleteCache("pending_hosts");
+    await deleteCacheByPrefix(`host:${userId}`);
+    await deleteCacheByPrefix("pending_hosts");
 
     return res.status(201).json({
       success: true,
@@ -88,9 +94,10 @@ export const updateHost = async (req, res) => {
       phone: req.body.phone ?? host.phone,
       email: req.body.email ?? host.email,
       country: req.body.country ?? host.country,
+      state: req.body.state ?? host.state,
       city: req.body.city ?? host.city,
-      zip_code : req.body.zip_code ?? host.zip_code,
-      address: req.body.address ?? host.address,
+      zip_code: req.body.zip_code ?? host.zip_code,
+      street_address: req.body.street_address ?? host.street_address,
       id_type: req.body.id_type ?? host.id_type,
       id_number: req.body.id_number ?? host.id_number
     };
@@ -108,8 +115,8 @@ export const updateHost = async (req, res) => {
     await host.update(updates);
 
     // Clear caches
-    await deleteCache(`host:${userId}`);
-    await deleteCache("pending_hosts");
+    await deleteCacheByPrefix(`host:${userId}`);
+    await deleteCacheByPrefix("pending_hosts");
 
     return res.json({
       success: true,
@@ -158,26 +165,43 @@ export const getMyHost = async (req, res) => {
 // get pending hosts (admin)
 export const getPendingHosts = async (req, res) => {
   try {
-    // Check cache
-    const cached = await getCache("pending_hosts");
+    const { country, state } = req.query;
+
+    // ✅ Location-aware cache key
+    const cacheKey = `pending_hosts:${country || "all"}:${state || "all"}`;
+    const cached = await getCache(cacheKey);
     if (cached) {
       return res.json({ success: true, hosts: cached });
     }
 
+    // ✅ Build where clause FIRST
+    const where = { status: "pending" };
+
+    if (country) where.country = country;
+    if (state) where.state = state;
+
     const hosts = await Host.findAll({
-      where: { status: "pending" },
-      include: [{ model: User }]
+      where,
+      include: [
+        {
+          model: User,
+          attributes: ["id", "email"]
+        }
+      ],
+      order: [["created_at", "DESC"]]
     });
 
-    // Cache results
-    await setCache("pending_hosts", hosts, 300);
+    // ✅ Cache per location
+    await setCache(cacheKey, hosts, 300);
 
     return res.json({ success: true, hosts });
 
   } catch (err) {
+    console.error("getPendingHosts error:", err);
     return res.status(500).json({ message: "Server error" });
   }
 };
+
 
 // approve host
 export const approveHost = async (req, res) => {
@@ -192,8 +216,8 @@ export const approveHost = async (req, res) => {
     await host.save();
 
     // Clear caches
-    await deleteCache(`host:${host.user_id}`);
-    await deleteCache("pending_hosts");
+    await deleteCacheByPrefix(`host:${host.user_id}`);
+    await deleteCacheByPrefix("pending_hosts");
 
     return res.json({ success: true, message: "Host approved" });
 
@@ -215,8 +239,8 @@ export const rejectHost = async (req, res) => {
     await host.save();
 
     // Clear caches
-    await deleteCache(`host:${host.user_id}`);
-    await deleteCache("pending_hosts");
+    await deleteCacheByPrefix(`host:${host.user_id}`);
+    await deleteCacheByPrefix("pending_hosts");
 
     return res.json({
       success: true,

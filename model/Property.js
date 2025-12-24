@@ -29,12 +29,19 @@ const Property = sequelize.define('Property', {
   description: DataTypes.TEXT,
 
   country: DataTypes.STRING,
+  state: {                        // ✅ ADDED
+  type: DataTypes.STRING(100),
+  allowNull: false
+},
   city: DataTypes.STRING,
    zip_code: {
     type: DataTypes.STRING(20),
     allowNull: true
   },
-  address: DataTypes.TEXT,
+  street_address: {               // ✅ ADDED
+  type: DataTypes.TEXT,
+  allowNull: false
+},
 
   photos: DataTypes.JSON,
   video: DataTypes.STRING,
@@ -85,17 +92,16 @@ const Property = sequelize.define('Property', {
   
   
    //  indexes
-  indexes: [
-    { fields: ['host_id'] },
-    { fields: ['status'] },
-    { fields: ['city'] },
-     { fields: ['zip_code'] },
-    { fields: ['country'] },
-    { fields: ['category_id'] },
-    { fields: ['property_type'] },
-    { fields: ['is_deleted']},
-     { fields: ['country', 'city', 'zip_code'] } // ✅ ADDED (important)
-  ]
+ indexes: [
+  { fields: ["host_id"] },
+  { fields: ["status"] },
+  { fields: ["country"] },
+  { fields: ["country", "state"] },
+  { fields: ["country", "state", "city"] },
+  { fields: ["country", "state", "city", "zip_code"] },
+  { fields: ["is_deleted"] }
+]
+
 });
 
 Property.belongsTo(Host, { foreignKey: 'host_id' });

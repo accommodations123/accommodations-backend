@@ -88,9 +88,10 @@ export const saveAddress = async (req, res) => {
     await Property.update(
       {
         country: req.body.country,
+        state: req.body.state,
         city: req.body.city,
         zip_code: req.body.zip_code || null,
-        address: req.body.address
+        street_address: req.body.street_address
       },
       { where: { id } }
     );
@@ -397,13 +398,16 @@ export const getApprovedListings = async (req, res) => {
     // ✅ Read from headers FIRST, fallback to query
     const country =
       req.headers["x-country"] || req.query.country || null
+    const state =
+      req.headers["x-state"] || req.query.state || null   // ✅ ADD
     const city =
       req.headers["x-city"] || req.query.city || null
     const zip_code =
       req.headers["x-zip-code"] || req.query.zip_code || null
 
+
     // ✅ Country-aware cache key
-    const cacheKey = `approved_listings:${country || "all"}:${city || "all"}:${zip_code || "all"}`
+    const cacheKey = `approved_listings:${country || "all"}:${state || "all"}:${city || "all"}:${zip_code || "all"}`
 
     const cached = await getCache(cacheKey)
     if (cached) {
@@ -417,6 +421,7 @@ export const getApprovedListings = async (req, res) => {
     }
 
     if (country) where.country = country
+    if (state) where.state = state 
     if (city) where.city = city
     if (zip_code) where.zip_code = zip_code
 
@@ -463,54 +468,46 @@ export const getAllPropertiesWithHosts = async (req, res) => {
     const offset = (page - 1) * limit;
 
     // -------------------------
-    // Filters from query
+    // Location (headers first)
     // -------------------------
-    const {
-      city,
-      country,
-      zip_code,
-      minPrice,
-      maxPrice
-    } = req.query;
+    const country =
+      req.headers["x-country"] || req.query.country || null;
+
+    const state =
+      req.headers["x-state"] || req.query.state || null;
+
+    const city =
+      req.headers["x-city"] || req.query.city || null;
+
+    const zip_code =
+      req.headers["x-zip-code"] || req.query.zip_code || null;
+
+    const { minPrice, maxPrice } = req.query;
 
     // -------------------------
-    // WHERE clause (dynamic)
+    // WHERE clause
     // -------------------------
     const where = {
       status: ["approved", "pending"],
       is_deleted: false
     };
 
-    // Location filters
-    if (city) {
-      where.city = city;
-    }
+    if (country) where.country = country;
+    if (state) where.state = state;          // ✅ ADDED
+    if (city) where.city = city;
+    if (zip_code) where.zip_code = zip_code;
 
-    if (country) {
-      where.country = country;
-    }
-    if (zip_code) {
-      where.zip_code = zip_code;
-    }
-
-    // Price range filter
+    // Price filter
     if (minPrice || maxPrice) {
       where.price_per_month = {};
-
-      if (minPrice) {
-        where.price_per_month[Op.gte] = Number(minPrice);
-      }
-
-      if (maxPrice) {
-        where.price_per_month[Op.lte] = Number(maxPrice);
-      }
+      if (minPrice) where.price_per_month[Op.gte] = Number(minPrice);
+      if (maxPrice) where.price_per_month[Op.lte] = Number(maxPrice);
     }
 
     // -------------------------
-    // Cache key (filters aware)
+    // Cache key (FULLY SAFE)
     // -------------------------
-    const cacheKey = `all_properties:${page}:${limit}:${country || "all"}:${city || "all"}:${zip_code || "all"}:${minPrice || 0}:${maxPrice || 0}`;
-
+    const cacheKey = `all_properties:${page}:${limit}:${country || "all"}:${state || "all"}:${city || "all"}:${zip_code || "all"}:${minPrice || 0}:${maxPrice || 0}`;
 
     const cached = await getCache(cacheKey);
     if (cached) {
@@ -548,8 +545,10 @@ export const getAllPropertiesWithHosts = async (req, res) => {
         totalPages: Math.ceil(count / limit)
       },
       filters: {
-        city: city || null,
-        country: country || null,
+        country,
+        state,
+        city,
+        zip_code,
         minPrice: minPrice || null,
         maxPrice: maxPrice || null
       },
@@ -572,6 +571,7 @@ export const getAllPropertiesWithHosts = async (req, res) => {
 
 
 
+
 // single property
 export const getPropertyById = async (req, res) => {
   try {
@@ -590,8 +590,10 @@ export const getPropertyById = async (req, res) => {
             "id",
             "full_name",
             "country",
+            "state",
             "city",
-            "address",
+            "zip_code", 
+            "street_address",
             "status",
             "id_photo",
             "selfie_photo"
