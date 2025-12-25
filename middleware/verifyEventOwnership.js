@@ -25,10 +25,11 @@ export const verifyEventOwnership = async (req, res, next) => {
       return res.status(403).json({ message: "You do not own this event" });
     }
 
+    // SAFE assignments
     req.event = event;
-    req.host = host;
-    next();
+    req.eventHost = host;
 
+    next();
   } catch (err) {
     console.error("VERIFY EVENT OWNERSHIP ERROR:", err);
     return res.status(500).json({
