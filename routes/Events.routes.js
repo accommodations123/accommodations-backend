@@ -1,6 +1,7 @@
 import express from "express";
 import userauth from "../middleware/userAuth.js";
 import adminAuth from "../middleware/adminAuth.js";
+
 import {
   createEventDraft,
   updateBasicInfo,
@@ -19,65 +20,66 @@ import {
   joinEvent,
   leaveEvent
 } from "../controllers/Event.controllers.js";
-import { verifyEventOwnership } from "../middleware/verifyEventOwnership.js";
+// import { verifyEventOwnership } from "../middleware/verifyEventOwnership.js";
+
+
 import { upload } from "../middleware/upload.js";
 
 const router = express.Router();
 
 /* -----------------------------------------
-   HOST FLOW
+   HOST FLOW: Create + Edit Event
 ----------------------------------------- */
 
 // Create draft
 router.post("/create-draft", userauth, createEventDraft);
 
-// Update flows
-router.put("/basic-info/:id", userauth, verifyEventOwnership, updateBasicInfo);
-router.put("/location/:id", userauth, verifyEventOwnership, updateLocation);
-router.put("/venue/:id", userauth, verifyEventOwnership, updateVenue);
-router.put("/schedule/:id", userauth, verifyEventOwnership, updateSchedule);
-router.put(
-  "/media/:id",
-  userauth,
-  verifyEventOwnership,
-  upload.fields([
-    { name: "bannerImage", maxCount: 1 },
-    { name: "galleryImages", maxCount: 10 }
-  ]),
-  updateMedia
-);
-router.put("/pricing/:id", userauth, verifyEventOwnership, updatePricing);
-router.put("/submit/:id", userauth, verifyEventOwnership, submitEvent);
+// Update basic info
+router.put("/basic-info/:id", userauth, updateBasicInfo);
+
+// Update location
+router.put("/location/:id", userauth, updateLocation);
+
+// Update venue + what's included
+router.put("/venue/:id", userauth, updateVenue);
+
+// Update schedule (JSON array)
+router.put("/schedule/:id", userauth, updateSchedule);
+
+// Upload banner + gallery
+router.put("/media/:id",userauth,upload.fields([{ name: "bannerImage", maxCount: 1 },{ name: "galleryImages", maxCount: 10 }]),updateMedia);
+
+// Update pricing
+router.put("/pricing/:id", userauth, updatePricing);
+
+// Submit event for admin approval
+router.put("/submit/:id", userauth, submitEvent);
 
 /* -----------------------------------------
    ADMIN FLOW
 ----------------------------------------- */
 
 router.get("/admin/pending", adminAuth, getPendingItems);
+
 router.put("/admin/approve/:id", adminAuth, approveEvent);
 router.put("/admin/reject/:id", adminAuth, rejectEvent);
 
 /* -----------------------------------------
-   STATIC / SPECIFIC ROUTES
+   PUBLIC ROUTES
 ----------------------------------------- */
 
-// Approved events
+// Approved events (homepage list)
 router.get("/approved", getApprovedEvents);
 
-// Host’s own events
-router.get("/host/my-events", userauth, getMyEvents);
+// Single event
+router.get("/:id", getEventById);
 
-/* -----------------------------------------
-   USER ACTIONS
------------------------------------------ */
+   //USER ACTIONS FOR EVENTS
 
 router.post("/:id/join", userauth, joinEvent);
 router.post("/:id/leave", userauth, leaveEvent);
 
-/* -----------------------------------------
-   DYNAMIC ROUTE — MUST BE LAST
------------------------------------------ */
-
-router.get("/:id", getEventById);
+// Host’s own events (My Events)
+router.get("/host/my-events", userauth, getMyEvents);
 
 export default router;

@@ -61,8 +61,7 @@ export const createEventDraft = async (req, res) => {
 // ======================================================
 export const updateBasicInfo = async (req, res) => {
   try {
-    const event = req.event;
-
+    const event = await Event.findByPk(req.params.id);
 
     if (!event) {
       return res.status(404).json({ success: false, message: "Event not found" });
@@ -90,8 +89,7 @@ export const updateBasicInfo = async (req, res) => {
 // ======================================================
 export const updateLocation = async (req, res) => {
   try {
-    const event = req.event;
-
+    const event = await Event.findByPk(req.params.id);
 
     if (!event) return res.status(404).json({ success: false, message: "Event not found" });
 
@@ -120,7 +118,7 @@ export const updateLocation = async (req, res) => {
 // ======================================================
 export const updateSchedule = async (req, res) => {
   try {
-    const event = req.event;
+    const event = await Event.findByPk(req.params.id);
 
     if (!event) return res.status(404).json({ success: false, message: "Event not found" });
 
@@ -143,8 +141,7 @@ export const updateSchedule = async (req, res) => {
 // ======================================================
 export const updateVenue = async (req, res) => {
   try {
-    const event = req.event;
-
+    const event = await Event.findByPk(req.params.id);
 
     if (!event) {
       return res.status(404).json({
@@ -224,8 +221,7 @@ export const updateVenue = async (req, res) => {
 export const updateMedia = async (req, res) => {
   try {
     const id = req.params.id;
-    const event = req.event;
-
+    const event = await Event.findByPk(id);
 
     if (!event) return res.status(404).json({ message: "Event not found" });
 
@@ -255,8 +251,7 @@ export const updateMedia = async (req, res) => {
 // ======================================================
 export const updatePricing = async (req, res) => {
   try {
-    const event = req.event;
-
+    const event = await Event.findByPk(req.params.id);
 
     if (!event) return res.status(404).json({ success: false, message: "Event not found" });
 
@@ -279,8 +274,7 @@ export const updatePricing = async (req, res) => {
 // ======================================================
 export const submitEvent = async (req, res) => {
   try {
-    const event = req.event;
-
+    const event = await Event.findByPk(req.params.id);
 
     if (!event) return res.status(404).json({ message: "Event not found" });
 
@@ -358,7 +352,6 @@ export const approveEvent = async (req, res) => {
     event.rejection_reason = "";
     await event.save();
 
-    await deleteCacheByPrefix(`host_events:${event.host_id}`);
     await deleteCacheByPrefix("pending_events");
     await deleteCacheByPrefix("approved_events");
     await deleteCacheByPrefix(`event:${event.id}`);
@@ -383,7 +376,6 @@ export const rejectEvent = async (req, res) => {
     event.rejection_reason = req.body.reason || "";
     await event.save();
 
-    await deleteCacheByPrefix(`host_events:${event.host_id}`);
     await deleteCacheByPrefix("pending_events");
     await deleteCacheByPrefix(`event:${event.id}`);
 
