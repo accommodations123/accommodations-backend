@@ -61,7 +61,7 @@ export const createEventDraft = async (req, res) => {
 // ======================================================
 export const updateBasicInfo = async (req, res) => {
   try {
-    const event = req.event;
+    const event = await Event.findByPk(req.params.id);
 
 
     if (!event) {
