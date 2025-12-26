@@ -111,6 +111,8 @@ export const saveHost = async (req, res) => {
     // Invalidate caches
     await deleteCacheByPrefix(`host:${userId}`);
     await deleteCacheByPrefix("pending_hosts");
+    await deleteCacheByPrefix("property:");
+
 
     return res.status(201).json({
       success: true,
@@ -177,6 +179,8 @@ export const updateHost = async (req, res) => {
     // Clear caches
     await deleteCacheByPrefix(`host:${userId}`);
     await deleteCacheByPrefix("pending_hosts");
+    await deleteCacheByPrefix("property:");
+
 
     return res.json({
       success: true,
