@@ -26,7 +26,7 @@ export const getPendingProperties = async (req, res) => {
       include: [
         {
           model: Host,
-          attributes: ["id", "user_id"],
+          attributes: ["id", "user_id","full_name"],
           include: [
             {
               model: User,
