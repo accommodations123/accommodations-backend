@@ -174,9 +174,12 @@ export const addResource = async (req, res) => {
   try {
     const userId = req.user.id;
     const communityId = req.params.id;
-    const { title, description, resource_type, resource_value } = req.body;
 
-    if (!title || !resource_type || !resource_value) {
+    const { title, description, resource_type } = req.body;
+
+    let resource_value = req.body.resource_value;
+
+    if (!title || !resource_type) {
       return res.status(400).json({ message: "Missing required fields" });
     }
 
@@ -186,7 +189,18 @@ export const addResource = async (req, res) => {
     }
 
     if (!isAdminOrOwner(community, userId)) {
-      return res.status(403).json({ message: "Only admin or owner can add resources" });
+      return res.status(403).json({
+        message: "Only admin or owner can add resources"
+      });
+    }
+
+    // If file uploaded, override resource_value
+    if (req.file) {
+      resource_value = req.file.location;
+    }
+
+    if (!resource_value) {
+      return res.status(400).json({ message: "Resource value is required" });
     }
 
     const resource = await CommunityResource.create({
@@ -198,15 +212,17 @@ export const addResource = async (req, res) => {
       resource_value
     });
 
-    /* 🔥 REDIS INVALIDATION */
     await deleteCache(`community:${communityId}:resources`);
 
     return res.json({ success: true, resource });
 
   } catch (err) {
+    console.error(err);
     return res.status(500).json({ message: "Failed to add resource" });
   }
 };
+
+
 
 
 /* GET RESOURCES */

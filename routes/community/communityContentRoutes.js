@@ -7,7 +7,7 @@ import {
   getResources,
   deleteResource
 } from "../../controllers/community/communityContentController.js";
-import { uploadCommunityMedia } from "../../middleware/uploads/community.upload.js";
+import { uploadCommunityMedia,uploadCommunityResource } from "../../middleware/uploads/community.upload.js";
 import {multerErrorHandler} from '../../middleware/uploads/multerErrorHandler.js'
 import userAuth from "../../middleware/userAuth.js";
 
@@ -43,7 +43,7 @@ router.delete("/communities/posts/:postId",userAuth,deletePost);
   Add resource (admin / owner only)
   POST /communities/:id/resources
 */
-router.post("/communities/:id/resources",userAuth,addResource);
+router.post("/communities/:id/resources",userAuth,uploadCommunityResource.single("file"),multerErrorHandler,addResource);
 
 /*
   Get community resources

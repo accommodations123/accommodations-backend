@@ -43,3 +43,33 @@ export const uploadCommunityMedia = multer({
     cb(null, true);
   }
 });
+
+export const uploadCommunityResource = multer({
+  storage: multerS3({
+    s3,
+    bucket: process.env.AWS_BUCKET,
+    contentType: multerS3.AUTO_CONTENT_TYPE,
+    key: (req, file, cb) => {
+      const type = file.mimetype.startsWith("video/") ? "videos" : "images";
+      cb(
+        null,
+        `communities/resources/${type}/${Date.now()}-${file.originalname}`
+      );
+    }
+  }),
+
+  limits: {
+    fileSize: 50 * 1024 * 1024
+  },
+
+  fileFilter: (req, file, cb) => {
+    const isImage = file.mimetype.startsWith("image/");
+    const isVideo = file.mimetype.startsWith("video/");
+
+    if (!isImage && !isVideo) {
+      return cb(new Error("Only image or video files allowed"));
+    }
+
+    cb(null, true);
+  }
+});
