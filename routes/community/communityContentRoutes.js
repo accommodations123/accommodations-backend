@@ -10,7 +10,7 @@ import {
 import { uploadCommunityMedia,uploadCommunityResource } from "../../middleware/uploads/community.upload.js";
 import {multerErrorHandler} from '../../middleware/uploads/multerErrorHandler.js'
 import userAuth from "../../middleware/userAuth.js";
-
+import {postRateLimit,resourceRateLimit} from '../../middleware/rateLimiter.js'
 const router = express.Router();
 
 /* =========================
@@ -21,7 +21,7 @@ const router = express.Router();
   Create a post (text / image / video)
   POST /communities/:id/posts
 */
-router.post("/communities/:id/posts",userAuth, uploadCommunityMedia.array("media", 5),multerErrorHandler,createPost);
+router.post("/communities/:id/posts",userAuth,postRateLimit, uploadCommunityMedia.array("media", 5),multerErrorHandler,createPost);
 
 /*
   Get community feed (paginated)
@@ -43,7 +43,7 @@ router.delete("/communities/posts/:postId",userAuth,deletePost);
   Add resource (admin / owner only)
   POST /communities/:id/resources
 */
-router.post("/communities/:id/resources",userAuth,uploadCommunityResource.single("file"),multerErrorHandler,addResource);
+router.post("/communities/:id/resources",userAuth,resourceRateLimit,uploadCommunityResource.single("file"),multerErrorHandler,addResource);
 
 /*
   Get community resources

@@ -24,3 +24,26 @@ export const rateLimit = async (req, res, next) => {
     res.status(429).json({ message: "Too many requests" });
   }
 };
+
+
+export const postRateLimit = async (req, res, next) => {
+  try {
+    await limiter.consume(`post:${req.user.id}`, 10);
+    next();
+  } catch {
+    return res.status(429).json({
+      message: "You are posting too fast"
+    });
+  }
+};
+
+export const resourceRateLimit = async (req, res, next) => {
+  try {
+    await limiter.consume(`resource:${req.user.id}`, 5);
+    next();
+  } catch {
+    return res.status(429).json({
+      message: "Too many resource uploads"
+    });
+  }
+};

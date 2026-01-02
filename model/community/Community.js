@@ -103,8 +103,10 @@ const Community = sequelize.define(
 
     members_count: {
       type: DataTypes.INTEGER,
+      allowNull: false,
       defaultValue: 1
     },
+
 
     posts_count: {
       type: DataTypes.INTEGER,
@@ -118,7 +120,7 @@ const Community = sequelize.define(
     },
 
     status: {
-      type: DataTypes.ENUM("pending","active", "suspended", "deleted"),
+      type: DataTypes.ENUM("pending", "active", "suspended", "deleted"),
       defaultValue: "pending"
     }
   },
@@ -131,6 +133,7 @@ const Community = sequelize.define(
       { fields: ["country", "state"] },
       { fields: ["visibility"] },
       { fields: ["status"] },
+      { fields: ["members_count"] },
       { unique: true, fields: ["slug"] }
     ]
   }

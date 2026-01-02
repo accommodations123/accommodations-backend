@@ -144,11 +144,14 @@ export const joinCommunity = async (req, res) => {
     }
 
     members.push({ user_id: userId, role: "member" });
-
     community.members = members;
-    community.members_count += 1;
 
     await community.save();
+
+    await Community.increment("members_count", {
+      where: { id: community.id }
+    });
+
 
     /* CACHE INVALIDATION */
     await deleteCache(`community:id:${community.id}`);
@@ -202,11 +205,14 @@ export const leaveCommunity = async (req, res) => {
 
     /* REMOVE MEMBER */
     members.splice(memberIndex, 1);
-
     community.members = members;
-    community.members_count = Math.max(0, community.members_count - 1);
 
     await community.save();
+
+    await Community.decrement("members_count", {
+      where: { id: communityId }
+    });
+
 
     /* 🔥 CACHE INVALIDATION */
     await deleteCache(`community:id:${communityId}`);
