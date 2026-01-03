@@ -317,12 +317,12 @@ export const getMyListings = async (req, res) => {
     });
 
     // ✅ IMPORTANT: handle non-host users
-    if (!host) {
-      return res.json({
-        success: true,
-        properties: []
-      });
-    }
+    // if (!host) {
+    //   return res.json({
+    //     success: true,
+    //     properties: []
+    //   });
+    // }
 
     const cacheKey = `host_listings:${host.id}`;
 
