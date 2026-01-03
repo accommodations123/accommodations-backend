@@ -21,10 +21,11 @@ import eventReviewRoutes from './routes/EventsReviews.Routes.js'
 import buySellRoutes from './routes/buySellRoutes.js'
 import communities from './routes/community/communityRoutes.js'
 import communityContentRoutes from './routes/community/communityContentRoutes.js'
+import authRoutes from './routes/auth/googleAuthroutes.js'
 (async () => {
   try {
     await sequelize.authenticate();
-    await sequelize.sync();
+    await sequelize.sync( );
 
     console.log("MySQL connected");
 
@@ -44,7 +45,8 @@ import communityContentRoutes from './routes/community/communityContentRoutes.js
     app.use('/buy-sell',buySellRoutes);
     app.use('/community',communities)
     app.use('/community',communityContentRoutes)
-
+    app.use('/auth',authRoutes)
+    
     const server = http.createServer(app)
     initSocket(server)
     const PORT = process.env.PORT || 5000;

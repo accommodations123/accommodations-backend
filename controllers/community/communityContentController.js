@@ -1,6 +1,7 @@
 import Community from "../../model/community/Community.js";
 import CommunityPost from "../../model/community/CommunityPost.js";
 import CommunityResource from "../../model/community/CommunityResource.js";
+import User from "../../model/User.js";
 import { getCache, setCache, deleteCache, deleteCacheByPrefix } from "../../services/cacheService.js";
 
 /* ======================================================
@@ -149,18 +150,31 @@ export const getFeed = async (req, res) => {
       },
       order: [["created_at", "DESC"]],
       limit,
-      offset
+      offset,
+      include: [
+        {
+          model: User,
+          as: "author",
+          attributes: ["id", "name", "profile_image"]
+        }
+      ]
     });
 
-    /* 🔹 REDIS WRITE (short TTL) */
+    /* 🔹 REDIS WRITE */
     await setCache(cacheKey, posts, 60);
 
-    return res.json({ success: true, page, posts });
+    return res.json({
+      success: true,
+      page,
+      posts
+    });
 
   } catch (err) {
+    console.error("GET FEED ERROR:", err);
     return res.status(500).json({ message: "Failed to load feed" });
   }
 };
+
 
 
 /* SOFT DELETE POST */

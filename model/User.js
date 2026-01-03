@@ -28,6 +28,25 @@ const User = sequelize.define('User', {
   verified: { 
     type: DataTypes.BOOLEAN,
     defaultValue: false 
+  },
+  /* =========================
+     🔹 ADDED FOR GOOGLE OAUTH
+  ========================= */
+
+  name: {
+    type: DataTypes.STRING(150),
+    allowNull: true
+  },
+
+  profile_image: {
+    type: DataTypes.STRING(255),
+    allowNull: true
+  },
+
+  google_id: {
+    type: DataTypes.STRING(100),
+    allowNull: true,
+    unique: true
   }
 }, {
   tableName: 'users',

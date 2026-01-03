@@ -153,7 +153,6 @@ export const verifyOTP = async (req, res) => {
     user.otp = null;
     user.otpExpires = null;
     await user.save();
-    await deleteCache(`user:auth:${user.id}`);
 
     const token = jwt.sign(
       { id: user.id, role: "user" },
