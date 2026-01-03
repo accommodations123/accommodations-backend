@@ -2,7 +2,7 @@ import { Op } from "sequelize";
 import Property from "../model/Property.js";
 import User from "../model/User.js";
 import Host from "../model/Host.js";
-// import { getCache, setCache,deleteCache, deleteCacheByPrefix } from "../services/cacheService.js";
+import { getCache, setCache,deleteCache, deleteCacheByPrefix } from "../services/cacheService.js";
 
 // CREATE DRAFT LISTING
 export const createDraft = async (req, res) => {
@@ -312,45 +312,29 @@ export const getMyListings = async (req, res) => {
   try {
     const userId = req.user.id;
 
-    const host = await Host.findOne({
-      where: { user_id: userId }
-    });
+    const host = await Host.findOne({ where: { user_id: userId } });
 
-    // ✅ IMPORTANT: handle non-host users
-    // if (!host) {
-    //   return res.json({
-    //     success: true,
-    //     properties: []
-    //   });
-    // }
+    if (!host) {
+      return res.json({ success: true, properties: [] });
+    }
 
-    const cacheKey = `host_listings:${host.id}`;
-
-    const cached = await getCache(cacheKey);
+    const cached = await getCache(`host_listings:${host.id}`);
     if (cached) {
-      return res.json({
-        success: true,
-        properties: cached
-      });
+      return res.json({ success: true, properties: cached });
     }
 
     const properties = await Property.findAll({
       where: { host_id: host.id }
     });
 
-    await setCache(cacheKey, properties, 300);
+    await setCache(`host_listings:${host.id}`, properties, 300);
 
-    return res.json({
-      success: true,
-      properties
-    });
+    return res.json({ success: true, properties });
 
   } catch (err) {
-    console.error("GET MY LISTINGS ERROR:", err);
     return res.status(500).json({ message: "Server error" });
   }
 };
-
 
 export const softDeleteProperty = async (req, res) => {
   try {
