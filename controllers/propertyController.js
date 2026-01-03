@@ -2,7 +2,7 @@ import { Op } from "sequelize";
 import Property from "../model/Property.js";
 import User from "../model/User.js";
 import Host from "../model/Host.js";
-import { getCache, setCache,deleteCache, deleteCacheByPrefix } from "../services/cacheService.js";
+// import { getCache, setCache,deleteCache, deleteCacheByPrefix } from "../services/cacheService.js";
 
 // CREATE DRAFT LISTING
 export const createDraft = async (req, res) => {
