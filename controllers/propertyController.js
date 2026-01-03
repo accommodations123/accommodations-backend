@@ -314,9 +314,9 @@ export const getMyListings = async (req, res) => {
 
     const host = await Host.findOne({ where: { user_id: userId } });
 
-    if (!host) {
-      return res.json({ success: true, properties: [] });
-    }
+    // if (!host) {
+    //   return res.json({ success: true, properties: [] });
+    // }
 
     const cached = await getCache(`host_listings:${host.id}`);
     if (cached) {

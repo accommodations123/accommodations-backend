@@ -1,6 +1,6 @@
 import { DataTypes } from "sequelize";
 import sequelize from "../../config/db.js";
-
+import User from "../User.js";
 const CommunityPost = sequelize.define(
   "CommunityPost",
   {
@@ -61,5 +61,14 @@ const CommunityPost = sequelize.define(
     ]
   }
 );
+CommunityPost.belongsTo(User, {
+  foreignKey: "user_id",
+  as: "author"
+});
+User.hasMany(CommunityPost, {
+  foreignKey: "user_id",
+  as: "communityPosts"
+});
+
 
 export default CommunityPost;
