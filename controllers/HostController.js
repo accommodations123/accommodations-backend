@@ -48,7 +48,8 @@ export const saveHost = async (req, res) => {
         "https://nominatim.openstreetmap.org/reverse",
         {
           params: { lat: latitude, lon: longitude, format: "json" },
-          headers: { "User-Agent": "accommodations-app" }
+          headers: { "User-Agent": "accommodations-app" },
+          timeout:5000
         }
       );
 

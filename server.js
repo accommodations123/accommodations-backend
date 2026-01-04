@@ -5,6 +5,7 @@ import express from "express";
 import cors from "cors";
 import sequelize from "./config/db.js";
 import { initSocket } from "./services/socket.js";
+import cookieParser from "cookie-parser";
 import "./model/User.js";
 import "./model/Host.js";
 import "./model/Property.js";   // add any other models here
@@ -22,6 +23,7 @@ import buySellRoutes from './routes/buySellRoutes.js'
 import communities from './routes/community/communityRoutes.js'
 import communityContentRoutes from './routes/community/communityContentRoutes.js'
 import authRoutes from './routes/auth/googleAuthroutes.js'
+import travelRoutes from './routes/travel/travelRoutes.js'
 (async () => {
   try {
     await sequelize.authenticate();
@@ -31,7 +33,9 @@ import authRoutes from './routes/auth/googleAuthroutes.js'
 
     const app = express();
     app.use(cors());
+    app.use(cookieParser())
     app.use(express.json());
+    
 
     // Routes
     app.use("/otp", otpRoutes);
@@ -46,6 +50,7 @@ import authRoutes from './routes/auth/googleAuthroutes.js'
     app.use('/community',communities)
     app.use('/community',communityContentRoutes)
     app.use('/auth',authRoutes)
+    app.use('/travel', travelRoutes)
     
     const server = http.createServer(app)
     initSocket(server)

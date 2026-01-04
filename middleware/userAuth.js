@@ -4,12 +4,13 @@ import { getCache, setCache } from "../services/cacheService.js";
 
 export default async function userAuth(req, res, next) {
   try {
-    const authHeader = req.header("Authorization");
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return res.status(401).json({ message: "No token provided" });
+    // ✅ READ TOKEN FROM COOKIE
+    const token = req.cookies?.access_token;
+
+    if (!token) {
+      return res.status(401).json({ message: "Unauthorized" });
     }
 
-    const token = authHeader.replace("Bearer ", "");
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
     if (!decoded || decoded.role !== "user") {
@@ -18,8 +19,18 @@ export default async function userAuth(req, res, next) {
 
     const userId = Number(decoded.id);
 
-    // 🔥 ALWAYS CHECK DB FOR VERIFIED STATUS
-    const dbUser = await User.findByPk(userId);
+    // ✅ TRY CACHE FIRST
+    const cachedUser = await getCache(`user:${userId}`);
+    if (cachedUser) {
+      req.user = cachedUser;
+      return next();
+    }
+
+    // 🔥 DB CHECK ONLY IF CACHE MISS
+    const dbUser = await User.findByPk(userId, {
+      attributes: ["id", "verified"]
+    });
+
     if (!dbUser) {
       return res.status(401).json({ message: "User not found" });
     }
@@ -28,21 +39,15 @@ export default async function userAuth(req, res, next) {
       return res.status(401).json({ message: "Please verify your OTP first" });
     }
 
-    // Cache safe fields AFTER verification
-    await setCache(
-      `user:${userId}`,
-      {
-        id: userId,
-        role: "user"
-      },
-      600
-    );
-
-    req.user = {
+    const safeUser = {
       id: userId,
       role: "user"
     };
 
+    // ✅ CACHE VERIFIED USER
+    await setCache(`user:${userId}`, safeUser, 600);
+
+    req.user = safeUser;
     next();
 
   } catch (err) {

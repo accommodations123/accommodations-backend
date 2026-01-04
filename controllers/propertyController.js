@@ -397,10 +397,6 @@ export const softDeleteProperty = async (req, res) => {
   }
 };
 
-
-
-
-
 // FRONTEND APPROVED LISTINGS
 export const getApprovedListings = async (req, res) => {
   try {
