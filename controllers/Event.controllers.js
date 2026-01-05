@@ -373,8 +373,8 @@ export const approveEvent = async (req, res) => {
     await event.save();
 
     await deleteCacheByPrefix(`host_events:${event.host_id}`);
-    await deleteCacheByPrefix("pending_events:");
-    await deleteCacheByPrefix("approved_events:");
+    await deleteCacheByPrefix("pending_events");
+    await deleteCacheByPrefix("approved_events");
     await deleteCache(`event:${event.id}`);
 
     // 🔔 WebSocket notification
@@ -686,5 +686,48 @@ export const leaveEvent = async (req, res) => {
 };
 
 
+// ======================================================
+// HOST: SOFT DELETE EVENT
+// ======================================================
+export const softDeleteEvent = async (req, res) => {
+  try {
+    const event = req.event; // injected by verifyEventOwnership
 
+    if (!event) {
+      return res.status(404).json({
+        success: false,
+        message: "Event not found"
+      });
+    }
 
+    // Prevent deleting already deleted events
+    if (event.status === "deleted") {
+      return res.status(400).json({
+        success: false,
+        message: "Event already deleted"
+      });
+    }
+
+    // Soft delete
+    event.status = "deleted";
+    await event.save();
+
+    // Cache cleanup (important)
+    await deleteCache(`event:${event.id}`);
+    await deleteCacheByPrefix("approved_events:");
+    await deleteCacheByPrefix("pending_events:");
+    await deleteCacheByPrefix(`host_events:${event.host_id}`);
+
+    return res.json({
+      success: true,
+      message: "Event deleted successfully"
+    });
+
+  } catch (err) {
+    console.error("DELETE EVENT ERROR:", err);
+    return res.status(500).json({
+      success: false,
+      message: "Server error"
+    });
+  }
+};

@@ -19,6 +19,7 @@ import {
 import userauth from "../middleware/userAuth.js";
 import {uploadPropertyImages,uploadPropertyDocs,uploadPropertyVideos} from "../middleware/uploads/property.upload.js";
 import {multerErrorHandler} from '../middleware/uploads/multerErrorHandler.js'
+import { verifyPropertyOwnership } from "../middleware/verifyPropertyOwnership.js"
 const router = express.Router();
 
 // router.post(
@@ -36,17 +37,17 @@ const router = express.Router();
 router.post("/create-draft", userauth, createDraft);
 router.put("/basic-info/:id", userauth, saveBasicInfo);
 router.put("/address/:id", userauth, saveAddress);
-router.put("/media/:id", userauth, uploadPropertyImages.array("photo" , 10),multerErrorHandler, saveMedia);
+router.put("/media/:id", userauth,verifyPropertyOwnership, uploadPropertyImages.array("photo" , 10),multerErrorHandler, saveMedia);
 router.put("/media/video/:id", userauth, uploadPropertyVideos.single("video"),multerErrorHandler, saveVideo);
 router.put("/amenities/:id", userauth, saveAmenities);
 router.put("/rules/:id", userauth, saveRules);
 router.put("/legal/:id",userauth,uploadPropertyDocs.array("legalDocs", 10),multerErrorHandler,saveLegalDocs);
 router.put("/pricing/:id", userauth, savePricing);
-router.put("/submit/:id", userauth, submitProperty);
+router.put("/submit/:id", userauth,verifyPropertyOwnership, submitProperty);
 
 // Host Listings
 router.get("/my-listings", userauth, getMyListings);
-router.delete("/delete/:id", userauth, softDeleteProperty);
+router.delete("/delete/:id", userauth,verifyPropertyOwnership, softDeleteProperty);
 
 // Public Listings
 router.get("/approved", getApprovedListings);

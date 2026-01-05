@@ -53,26 +53,28 @@ export const createDraft = async (req, res) => {
 // BASIC INFO
 export const saveBasicInfo = async (req, res) => {
   try {
-    const id = req.params.id;
+    const property = req.property;
 
-    await Property.update(
+    await property.update(
       {
+        title: req.body.title,
+        description: req.body.description,
         guests: req.body.guests,
         bedrooms: req.body.bedrooms,
         bathrooms: req.body.bathrooms,
         pets_allowed: req.body.petsAllowed,
         area: req.body.area
       },
-      { where: { id } }
+      // { where: { id } }
     );
 
-    const property = await Property.findByPk(id);
+    // const property = await Property.findByPk(id);
 
     // Clear caches
-    await deleteCache(`property:${id}`);
+    await deleteCache(`property:${property.id}`);
     await deleteCacheByPrefix(`host_listings:${property.host_id}`);
-    await deleteCacheByPrefix("approved_listings:");
-    await deleteCacheByPrefix("all_properties:");
+    // await deleteCacheByPrefix("approved_listings:");
+    // await deleteCacheByPrefix("all_properties:");
 
     return res.json({ success: true, property });
   } catch (err) {
@@ -84,9 +86,9 @@ export const saveBasicInfo = async (req, res) => {
 // ADDRESS
 export const saveAddress = async (req, res) => {
   try {
-    const id = req.params.id;
+    const property = req.property;
 
-    await Property.update(
+    await property.update(
       {
         country: req.body.country,
         state: req.body.state,
@@ -94,15 +96,15 @@ export const saveAddress = async (req, res) => {
         zip_code: req.body.zip_code || null,
         street_address: req.body.street_address
       },
-      { where: { id } }
+      // { where: { id } }
     );
 
-    const property = await Property.findByPk(id);
+    // const property = await Property.findByPk(id);
 
-    await deleteCache(`property:${id}`);
+    await deleteCache(`property:${property.id}`);
     await deleteCacheByPrefix(`host_listings:${property.host_id}`);
-    await deleteCacheByPrefix("approved_listings:");
-    await deleteCacheByPrefix("all_properties:");
+    // await deleteCacheByPrefix("approved_listings:");
+    // await deleteCacheByPrefix("all_properties:");
 
     return res.json({ success: true, property });
 
@@ -115,14 +117,14 @@ export const saveAddress = async (req, res) => {
 // MEDIA
 export const saveMedia = async (req, res) => {
   try {
-    const id = req.params.id;
+    const property = req.property;
 
     if (!req.files || req.files.length === 0) {
       return res.status(400).json({ message: "No images uploaded" });
     }
 
     const newUrls = req.files.map(file => file.location);
-    const property = await Property.findByPk(id);
+    // const property = await Property.findByPk(id);
 
     if (!property) {
       return res.status(404).json({ message: "Not found" });
@@ -133,10 +135,10 @@ export const saveMedia = async (req, res) => {
 
     await property.save();
 
-    await deleteCache(`property:${id}`);
+    await deleteCache(`property:${property.id}`);
     await deleteCacheByPrefix(`host_listings:${property.host_id}`);
-    await deleteCacheByPrefix("approved_listings:");
-    await deleteCacheByPrefix("all_properties:");
+    // await deleteCacheByPrefix("approved_listings:");
+    // await deleteCacheByPrefix("all_properties:");
 
     return res.json({ success: true, property });
   } catch (err) {
@@ -147,19 +149,19 @@ export const saveMedia = async (req, res) => {
 
 export const saveVideo = async (req, res) => {
   try {
-    const id = req.params.id;
+    const property = req.property;
 
-    await Property.update(
+    await property.update(
       { video: req.file.location },
-      { where: { id } }
+      // { where: { id } }
     );
 
-    const property = await Property.findByPk(id);
+    // const property = await Property.findByPk(id);
 
     await deleteCache(`property:${id}`);
     await deleteCacheByPrefix(`host_listings:${property.host_id}`);
-    await deleteCacheByPrefix("approved_listings:");
-    await deleteCacheByPrefix("all_properties:");
+    // await deleteCacheByPrefix("approved_listings:");
+    // await deleteCacheByPrefix("all_properties:");
 
     return res.json({ success: true, property });
   } catch (err) {
@@ -171,16 +173,16 @@ export const saveVideo = async (req, res) => {
 // AMENITIES
 export const saveAmenities = async (req, res) => {
   try {
-    const id = req.params.id;
+    const property = req.property;
 
-    await Property.update(
+    await property.update(
       { amenities: req.body.amenities || [] },
-      { where: { id } }
+      // { where: { id } }
     );
 
-    const property = await Property.findByPk(id);
+    // const property = await Property.findByPk(id);
 
-    await deleteCache(`property:${id}`);
+    await deleteCache(`property:${property.id}`);
     await deleteCacheByPrefix(`host_listings:${property.host_id}`);
     await deleteCacheByPrefix("approved_listings:");
     await deleteCacheByPrefix("all_properties:");
@@ -196,19 +198,19 @@ export const saveAmenities = async (req, res) => {
 // RULES
 export const saveRules = async (req, res) => {
   try {
-    const id = req.params.id;
+    const property = req.property;
 
-    await Property.update(
+    await property.update(
       { rules: req.body.rules || [] },
-      { where: { id } }
+      // { where: { id } }
     );
 
-    const property = await Property.findByPk(id);
+    // const property = await Property.findByPk(id);
 
     await deleteCache(`property:${id}`);
     await deleteCacheByPrefix(`host_listings:${property.host_id}`);
-    await deleteCacheByPrefix("approved_listings:");
-    await deleteCacheByPrefix("all_properties:");
+    // await deleteCacheByPrefix("approved_listings:");
+    // await deleteCacheByPrefix("all_properties:");
 
     return res.json({ success: true, property });
 
@@ -221,14 +223,14 @@ export const saveRules = async (req, res) => {
 // LEGAL DOCS
 export const saveLegalDocs = async (req, res) => {
   try {
-    const id = req.params.id;
+    const property = req.property;
 
     if (!req.files || req.files.length === 0) {
       return res.status(400).json({ message: "No documents uploaded" });
     }
 
     const newUrls = req.files.map(file => file.location);
-    const property = await Property.findByPk(id);
+    // const property = await Property.findByPk(id);
 
     if (!property) {
       return res.status(404).json({ message: "Not found" });
@@ -239,10 +241,10 @@ export const saveLegalDocs = async (req, res) => {
 
     await property.save();
 
-    await deleteCache(`property:${id}`);
+    await deleteCache(`property:${property.id}`);
     await deleteCacheByPrefix(`host_listings:${property.host_id}`);
-    await deleteCacheByPrefix("approved_listings:");
-    await deleteCacheByPrefix("all_properties:");
+    // await deleteCacheByPrefix("approved_listings:");
+    // await deleteCacheByPrefix("all_properties:");
 
     return res.json({ success: true, property });
 
@@ -255,24 +257,24 @@ export const saveLegalDocs = async (req, res) => {
 // PRICING
 export const savePricing = async (req, res) => {
   try {
-    const id = req.params.id;
+    const property = req.property;
 
-    await Property.update(
+    await property.update(
       {
         price_per_hour: req.body.pricePerHour,
         price_per_night: req.body.pricePerNight,
         price_per_month: req.body.pricePerMonth,
         currency: req.body.currency
       },
-      { where: { id } }
+      // { where: { id } }
     );
 
-    const property = await Property.findByPk(id);
+    // const property = await Property.findByPk(id);
 
-    await deleteCache(`property:${id}`);
+    await deleteCache(`property:${property.id}`);
     await deleteCacheByPrefix(`host_listings:${property.host_id}`);
-    await deleteCacheByPrefix("approved_listings:");
-    await deleteCacheByPrefix("all_properties:");
+    // await deleteCacheByPrefix("approved_listings:");
+    // await deleteCacheByPrefix("all_properties:");
 
     return res.json({ success: true, property });
 
@@ -285,9 +287,9 @@ export const savePricing = async (req, res) => {
 // SUBMIT TO ADMIN
 export const submitProperty = async (req, res) => {
   try {
-    const id = req.params.id;
+    const property = req.property;
 
-    const property = await Property.findByPk(id);
+    // const property = await Property.findByPk(id);
 
     if (!property) {
       return res.status(404).json({ message: "Not found" });
@@ -296,10 +298,10 @@ export const submitProperty = async (req, res) => {
     property.status = "pending";
     await property.save();
 
-    await deleteCache(`property:${id}`);
+    await deleteCache(`property:${property.id}`);
     await deleteCacheByPrefix(`host_listings:${property.host_id}`);
-    await deleteCacheByPrefix("approved_listings:");
-    await deleteCacheByPrefix("all_properties:");
+    // await deleteCacheByPrefix("approved_listings:");
+    // await deleteCacheByPrefix("all_properties:");
 
     return res.json({ success: true, message: "Submitted to admin" });
 
@@ -346,32 +348,9 @@ export const getMyListings = async (req, res) => {
 
 export const softDeleteProperty = async (req, res) => {
   try {
-    const property_id = req.params.id;
-    const { reason } = req.body;
+    const property = req.property;
     const userId = req.user.id;
-
-    if (!property_id) {
-      return res.status(400).json({ message: "property_id is required" });
-    }
-
-    const host = await Host.findOne({ where: { user_id: userId } });
-    if (!host) {
-      return res.status(403).json({ message: "Host profile not found" });
-    }
-
-    const property = await Property.findOne({
-      where: {
-        id: property_id,
-        host_id: host.id,
-        is_deleted: false
-      }
-    });
-
-    if (!property) {
-      return res.status(404).json({
-        message: "Property not found or already deleted"
-      });
-    }
+    const { reason } = req.body;
 
     await property.update({
       is_deleted: true,
@@ -380,11 +359,8 @@ export const softDeleteProperty = async (req, res) => {
       delete_reason: reason || null
     });
 
-    // Clear caches
-    await deleteCache(`property:${property_id}`);
-    await deleteCacheByPrefix(`host_listings:${host.id}`);
-    await deleteCacheByPrefix("approved_listings:");
-    await deleteCacheByPrefix("all_properties:");
+    await deleteCache(`property:${property.id}`);
+    await deleteCacheByPrefix(`host_listings:${property.host_id}`);
 
     return res.json({
       success: true,
@@ -392,10 +368,10 @@ export const softDeleteProperty = async (req, res) => {
     });
 
   } catch (err) {
-    console.error("SOFT DELETE ERROR:", err);
     return res.status(500).json({ message: "Server error" });
   }
 };
+
 
 // FRONTEND APPROVED LISTINGS
 export const getApprovedListings = async (req, res) => {

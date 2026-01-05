@@ -18,7 +18,8 @@ import {
   getMyEvents,
   getEventById,
   joinEvent,
-  leaveEvent
+  leaveEvent,
+  softDeleteEvent
 } from "../controllers/Event.controllers.js";
 import { verifyEventOwnership } from "../middleware/verifyEventOwnership.js";
 import {multerErrorHandler} from '../middleware/uploads/multerErrorHandler.js'
@@ -81,5 +82,8 @@ router.post("/:id/leave", userauth, leaveEvent);
 
 // Host’s own events (My Events)
 router.get("/host/my-events", userauth, getMyEvents);
+// Safe delete event (host only)
+router.delete("/delete/:id",userauth,verifyEventOwnership,softDeleteEvent);
+
 
 export default router;

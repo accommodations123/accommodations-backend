@@ -1,34 +1,50 @@
 import { Server } from "socket.io";
 import jwt from "jsonwebtoken";
+import cookie from "cookie";
 
 let io;
 
 export const initSocket = (server) => {
   io = new Server(server, {
     cors: {
-      origin: "*",
-      methods: ["GET", "POST"]
+      origin: ["https://accomodation.test.nextkinlife.live",
+        "http://localhost:3000"] , // ⚠️ NOT *
+      credentials: true
     }
   });
 
+  // 🔐 Authenticate socket using cookies
   io.use((socket, next) => {
     try {
-      const token = socket.handshake.auth?.token;
-      if (!token) return next(new Error("No token"));
+      const cookieHeader = socket.handshake.headers.cookie;
+      if (!cookieHeader) {
+        return next(new Error("No cookies sent"));
+      }
+
+      const cookies = cookie.parse(cookieHeader);
+      const token = cookies.token; // 👈 cookie name
+
+      if (!token) {
+        return next(new Error("Auth token missing"));
+      }
 
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      socket.user = decoded; // { id, role }
 
-      next();
-    } catch {
-      next(new Error("Invalid token"));
+      socket.user = {
+        id: decoded.id,
+        role: decoded.role
+      };
+
+      return next();
+    } catch (err) {
+      return next(new Error("Invalid or expired token"));
     }
   });
 
   io.on("connection", (socket) => {
-    console.log("Socket connected:", socket.id);
+    console.log("Socket connected:", socket.id, "User:", socket.user.id);
 
-    // auto-join own room
+    // ✅ auto-join user room securely
     socket.join(`user:${socket.user.id}`);
 
     socket.on("disconnect", () => {
