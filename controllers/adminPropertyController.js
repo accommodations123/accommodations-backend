@@ -26,7 +26,7 @@ export const getPendingProperties = async (req, res) => {
       include: [
         {
           model: Host,
-          attributes: ["id", "user_id","full_name"],
+          attributes: ["id", "user_id", "full_name"],
           include: [
             {
               model: User,
@@ -75,19 +75,35 @@ export const approveProperty = async (req, res) => {
     });
 
     if (!property) {
-      return res.status(404).json({ message: "Not found" });
+      return res.status(404).json({ message: "Property not found" });
     }
 
-    property.status = "approved";
-    property.rejection_reason = "";
-    await property.save();
+    // ✅ Only pending → approved
+    if (property.status !== "pending") {
+      return res.status(400).json({
+        message: "Only pending properties can be approved"
+      });
+    }
 
-    // Cache cleanup
+    // 🔥 START 15-DAY TIMER HERE
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 15);
+
+    await property.update({
+      status: "approved",
+      rejection_reason: "",
+      listing_expires_at: expiresAt,
+      is_expired: false
+    });
+
+    // ✅ Cache cleanup
     await deleteCacheByPrefix("pending_properties");
     await deleteCacheByPrefix("property_status_stats");
     await deleteCacheByPrefix("property_country_stats");
+    await deleteCacheByPrefix("approved_listings:");
+    await deleteCacheByPrefix("all_properties:");
 
-    // WebSocket
+    // ✅ WebSocket notification
     const io = getIO();
     io.to(`user:${property.Host.user_id}`).emit("notification", {
       type: "PROPERTY_APPROVED",
@@ -97,7 +113,7 @@ export const approveProperty = async (req, res) => {
       entityId: property.id
     });
 
-    // Email (safe)
+    // ✅ Email (safe)
     try {
       await sendPropertyApprovedEmail({
         to: property.Host.User.email,
@@ -109,7 +125,7 @@ export const approveProperty = async (req, res) => {
 
     return res.json({
       success: true,
-      message: "Property approved"
+      message: "Property approved and 15-day timer started"
     });
 
   } catch (err) {
@@ -117,6 +133,7 @@ export const approveProperty = async (req, res) => {
     return res.status(500).json({ message: "Server error" });
   }
 };
+
 
 
 

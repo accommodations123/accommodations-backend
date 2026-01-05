@@ -9,10 +9,10 @@ const Property = sequelize.define('Property', {
     autoIncrement: true,
     primaryKey: true
   },
-     user_id: {                         // 🔥 THIS IS MISSING
-      type: DataTypes.INTEGER,
-      allowNull: false
-    },
+  user_id: {                         // 🔥 THIS IS MISSING
+    type: DataTypes.INTEGER,
+    allowNull: false
+  },
 
   host_id: {
     type: DataTypes.INTEGER,
@@ -34,29 +34,29 @@ const Property = sequelize.define('Property', {
 
   country: DataTypes.STRING,
   state: {                        // ✅ ADDED
-  type: DataTypes.STRING(100),
-  allowNull: true
-},
+    type: DataTypes.STRING(100),
+    allowNull: true
+  },
   city: DataTypes.STRING,
-   zip_code: {
+  zip_code: {
     type: DataTypes.STRING(20),
     allowNull: true
   },
   street_address: {               // ✅ ADDED
-  type: DataTypes.TEXT,
-  allowNull: true
-},
+    type: DataTypes.TEXT,
+    allowNull: true
+  },
 
   photos: DataTypes.JSON,
   video: DataTypes.STRING,
 
   amenities: DataTypes.JSON,
   rules: DataTypes.JSON,
-  legal_docs: DataTypes.JSON,
+  // legal_docs: DataTypes.JSON,
 
-  price_per_hour: DataTypes.DECIMAL(10,2),
-  price_per_night: DataTypes.DECIMAL(10,2),
-  price_per_month: DataTypes.DECIMAL(10,2),
+  price_per_hour: DataTypes.DECIMAL(10, 2),
+  price_per_night: DataTypes.DECIMAL(10, 2),
+  price_per_month: DataTypes.DECIMAL(10, 2),
 
   currency: {
     type: DataTypes.STRING,
@@ -73,38 +73,50 @@ const Property = sequelize.define('Property', {
     defaultValue: ''
   },
   is_deleted: {
-      type: DataTypes.BOOLEAN,
-      defaultValue: false
-    },
-    deleted_at: {
-      type: DataTypes.DATE,
-      allowNull: true
-    },
-    deleted_by: {
-      type: DataTypes.INTEGER,
-      allowNull: true
-    },
-    delete_reason: {
-      type: DataTypes.STRING,
-      allowNull: true
-    }
+    type: DataTypes.BOOLEAN,
+    defaultValue: false
+  },
+  deleted_at: {
+    type: DataTypes.DATE,
+    allowNull: true
+  },
+  deleted_by: {
+    type: DataTypes.INTEGER,
+    allowNull: true
+  },
+  delete_reason: {
+    type: DataTypes.STRING,
+    allowNull: true
+  }, listing_expires_at: {
+    type: DataTypes.DATE,
+    allowNull: true
+  },
+
+  is_expired: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false
+  }
+
 
 }, {
   tableName: 'properties',
   timestamps: true,
   underscored: true,
-  
-  
-   //  indexes
- indexes: [
-  { fields: ["host_id"] },
-  { fields: ["status"] },
-  { fields: ["country"] },
-  { fields: ["country", "state"] },
-  { fields: ["country", "state", "city"] },
-  { fields: ["country", "state", "city", "zip_code"] },
-  { fields: ["is_deleted"] }
-]
+
+
+  //  indexes
+  indexes: [
+    { fields: ["host_id"] },
+    { fields: ["status"] },
+    { fields: ["country"] },
+    { fields: ["country", "state"] },
+    { fields: ["country", "state", "city"] },
+    { fields: ["country", "state", "city", "zip_code"] },
+    { fields: ["is_deleted"] },
+    { fields: ["listing_expires_at"] },
+    { fields: ["is_expired"] }
+
+  ]
 
 });
 

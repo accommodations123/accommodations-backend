@@ -49,7 +49,7 @@ export const saveHost = async (req, res) => {
         {
           params: { lat: latitude, lon: longitude, format: "json" },
           headers: { "User-Agent": "accommodations-app" },
-          timeout:5000
+          timeout: 5000
         }
       );
 
@@ -102,10 +102,10 @@ export const saveHost = async (req, res) => {
       city: location.city,
       zip_code: location.zip_code,
       street_address: location.street_address,
-      id_type: req.body.id_type,
-      id_number: req.body.id_number,
-      id_photo: req.files?.idPhoto ? req.files.idPhoto[0].location : null,
-      selfie_photo: req.files?.selfiePhoto ? req.files.selfiePhoto[0].location : null
+      // 🔹 Direct communication
+      whatsapp: req.body.whatsapp,
+      instagram: req.body.instagram,
+      facebook: req.body.facebook,
     });
 
     // Invalidate caches
@@ -160,19 +160,11 @@ export const updateHost = async (req, res) => {
       city: req.body.city ?? host.city,
       zip_code: req.body.zip_code ?? host.zip_code,
       street_address: req.body.street_address ?? host.street_address,
-      id_type: req.body.id_type ?? host.id_type,
-      id_number: req.body.id_number ?? host.id_number
+      whatsapp: req.body.whatsapp ?? host.whatsapp,
+      instagram: req.body.instagram ?? host.instagram,
+      facebook: req.body.facebook ?? host.facebook,
     };
 
-    // Update ID photo if uploaded
-    if (req.files?.idPhoto?.[0]?.location) {
-      updates.id_photo = req.files.idPhoto[0].location;
-    }
-
-    // Update selfie photo if uploaded
-    if (req.files?.selfiePhoto?.[0]?.location) {
-      updates.selfie_photo = req.files.selfiePhoto[0].location;
-    }
 
     await host.update(updates);
 

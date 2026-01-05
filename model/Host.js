@@ -33,30 +33,30 @@ const Host = sequelize.define('Host', {
     type: DataTypes.STRING,
     allowNull: false
   },
-  zip_code : {
+  zip_code: {
     type: DataTypes.STRING(20),
-    allowNull:true
+    allowNull: true
   },
   street_address: {             // ✅ ADDED
     type: DataTypes.TEXT,
     allowNull: true
   },
 
-  id_type: {
+
+  // 🔹 Communication channels
+  whatsapp: {
     type: DataTypes.STRING,
-    allowNull: false
+    allowNull: true
   },
-  id_number: {
+
+  facebook: {
     type: DataTypes.STRING,
-    allowNull: false
+    allowNull: true
   },
-  id_photo: {
+
+  instagram: {
     type: DataTypes.STRING,
-    allowNull: false
-  },
-  selfie_photo: {
-    type: DataTypes.STRING,
-    allowNull: false
+    allowNull: true
   },
   status: {
     type: DataTypes.STRING,

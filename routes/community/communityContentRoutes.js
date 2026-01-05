@@ -41,7 +41,7 @@ router.delete("/communities/posts/:postId",userAuth,deletePost);
 
 /*
   Add resource (admin / owner only)
-  POST /communities/:id/resources
+  POST /communities/:id/resources      
 */
 router.post("/communities/:id/resources",userAuth,resourceRateLimit,uploadCommunityResource.single("file"),multerErrorHandler,addResource);
 

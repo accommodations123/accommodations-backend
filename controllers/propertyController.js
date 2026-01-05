@@ -2,7 +2,7 @@ import { Op } from "sequelize";
 import Property from "../model/Property.js";
 import User from "../model/User.js";
 import Host from "../model/Host.js";
-import { getCache, setCache,deleteCache, deleteCacheByPrefix } from "../services/cacheService.js";
+import { getCache, setCache, deleteCache, deleteCacheByPrefix } from "../services/cacheService.js";
 
 // CREATE DRAFT LISTING
 export const createDraft = async (req, res) => {
@@ -15,11 +15,20 @@ export const createDraft = async (req, res) => {
     }
 
     const host = await Host.findOne({ where: { user_id: userId } });
+
     if (!host) {
       return res.status(400).json({
         message: "You must complete host details before posting a property."
       });
     }
+
+    if (!host.whatsapp && !host.instagram && !host.facebook) {
+      return res.status(400).json({
+        success: false,
+        message: "Please add at least one contact method in host profile"
+      });
+    }
+
 
     const property = await Property.create({
       user_id: userId,        // REQUIRED
@@ -55,6 +64,13 @@ export const saveBasicInfo = async (req, res) => {
   try {
     const property = req.property;
 
+    if (property.status !== "draft") {
+      return res.status(400).json({
+        message: "Only draft properties can be edited"
+      });
+    }
+
+
     await property.update(
       {
         title: req.body.title,
@@ -87,6 +103,12 @@ export const saveBasicInfo = async (req, res) => {
 export const saveAddress = async (req, res) => {
   try {
     const property = req.property;
+    if (property.status !== "draft") {
+      return res.status(400).json({
+        message: "Only draft properties can be edited"
+      });
+    }
+
 
     await property.update(
       {
@@ -118,6 +140,12 @@ export const saveAddress = async (req, res) => {
 export const saveMedia = async (req, res) => {
   try {
     const property = req.property;
+    if (property.status !== "draft") {
+      return res.status(400).json({
+        message: "Only draft properties can be edited"
+      });
+    }
+
 
     if (!req.files || req.files.length === 0) {
       return res.status(400).json({ message: "No images uploaded" });
@@ -150,6 +178,12 @@ export const saveMedia = async (req, res) => {
 export const saveVideo = async (req, res) => {
   try {
     const property = req.property;
+    if (property.status !== "draft") {
+      return res.status(400).json({
+        message: "Only draft properties can be edited"
+      });
+    }
+
 
     await property.update(
       { video: req.file.location },
@@ -158,7 +192,7 @@ export const saveVideo = async (req, res) => {
 
     // const property = await Property.findByPk(id);
 
-    await deleteCache(`property:${id}`);
+    await deleteCache(`property:${property.id}`);
     await deleteCacheByPrefix(`host_listings:${property.host_id}`);
     // await deleteCacheByPrefix("approved_listings:");
     // await deleteCacheByPrefix("all_properties:");
@@ -174,6 +208,12 @@ export const saveVideo = async (req, res) => {
 export const saveAmenities = async (req, res) => {
   try {
     const property = req.property;
+    if (property.status !== "draft") {
+      return res.status(400).json({
+        message: "Only draft properties can be edited"
+      });
+    }
+
 
     await property.update(
       { amenities: req.body.amenities || [] },
@@ -199,6 +239,12 @@ export const saveAmenities = async (req, res) => {
 export const saveRules = async (req, res) => {
   try {
     const property = req.property;
+    if (property.status !== "draft") {
+      return res.status(400).json({
+        message: "Only draft properties can be edited"
+      });
+    }
+
 
     await property.update(
       { rules: req.body.rules || [] },
@@ -206,40 +252,6 @@ export const saveRules = async (req, res) => {
     );
 
     // const property = await Property.findByPk(id);
-
-    await deleteCache(`property:${id}`);
-    await deleteCacheByPrefix(`host_listings:${property.host_id}`);
-    // await deleteCacheByPrefix("approved_listings:");
-    // await deleteCacheByPrefix("all_properties:");
-
-    return res.json({ success: true, property });
-
-  } catch (err) {
-    return res.status(500).json({ message: "Server error" });
-  }
-};
-
-
-// LEGAL DOCS
-export const saveLegalDocs = async (req, res) => {
-  try {
-    const property = req.property;
-
-    if (!req.files || req.files.length === 0) {
-      return res.status(400).json({ message: "No documents uploaded" });
-    }
-
-    const newUrls = req.files.map(file => file.location);
-    // const property = await Property.findByPk(id);
-
-    if (!property) {
-      return res.status(404).json({ message: "Not found" });
-    }
-
-    const oldDocs = property.legal_docs || [];
-    property.legal_docs = [...oldDocs, ...newUrls];
-
-    await property.save();
 
     await deleteCache(`property:${property.id}`);
     await deleteCacheByPrefix(`host_listings:${property.host_id}`);
@@ -254,10 +266,50 @@ export const saveLegalDocs = async (req, res) => {
 };
 
 
+// LEGAL DOCS
+// export const saveLegalDocs = async (req, res) => {
+//   try {
+//     const property = req.property;
+
+//     if (!req.files || req.files.length === 0) {
+//       return res.status(400).json({ message: "No documents uploaded" });
+//     }
+
+//     const newUrls = req.files.map(file => file.location);
+//     // const property = await Property.findByPk(id);
+
+//     if (!property) {
+//       return res.status(404).json({ message: "Not found" });
+//     }
+
+//     const oldDocs = property.legal_docs || [];
+//     property.legal_docs = [...oldDocs, ...newUrls];
+
+//     await property.save();
+
+//     await deleteCache(`property:${property.id}`);
+//     await deleteCacheByPrefix(`host_listings:${property.host_id}`);
+//     // await deleteCacheByPrefix("approved_listings:");
+//     // await deleteCacheByPrefix("all_properties:");
+
+//     return res.json({ success: true, property });
+
+//   } catch (err) {
+//     return res.status(500).json({ message: "Server error" });
+//   }
+// };
+
+
 // PRICING
 export const savePricing = async (req, res) => {
   try {
     const property = req.property;
+    if (property.status !== "draft") {
+      return res.status(400).json({
+        message: "Only draft properties can be edited"
+      });
+    }
+
 
     await property.update(
       {
@@ -288,6 +340,12 @@ export const savePricing = async (req, res) => {
 export const submitProperty = async (req, res) => {
   try {
     const property = req.property;
+    if (property.status !== "draft") {
+      return res.status(400).json({
+        message: "Only draft properties can be submitted"
+      });
+    }
+
 
     // const property = await Property.findByPk(id);
 
@@ -331,9 +389,13 @@ export const getMyListings = async (req, res) => {
     }
 
     const properties = await Property.findAll({
-      where: { host_id: host.id },
+      where: {
+        host_id: host.id,
+        is_deleted: false
+      },
       order: [["createdAt", "DESC"]]
     });
+
 
     await setCache(cacheKey, properties, 300);
 
@@ -398,13 +460,23 @@ export const getApprovedListings = async (req, res) => {
 
     // ✅ Dynamic DB filter
     const where = {
-     status:{
-      [Op.in]: ['approved','pending']
-     }
-    }
+      is_deleted: false,
+      [Op.or]: [
+        // 🔴 Pending = unverified (always visible)
+        { status: "pending" },
 
+        // 🟢 Approved = visible only within 15 days
+        {
+          status: "approved",
+          is_expired: false,
+          listing_expires_at: {
+            [Op.gt]: new Date()
+          }
+        }
+      ]
+    };
     if (country) where.country = country
-    if (state) where.state = state 
+    if (state) where.state = state
     if (city) where.city = city
     if (zip_code) where.zip_code = zip_code
 
@@ -415,7 +487,7 @@ export const getApprovedListings = async (req, res) => {
       include: [
         {
           model: Host,
-          attributes: ["id", "full_name", "status", "phone", "selfie_photo"],
+          attributes: ["id", "full_name", "phone"],
           include: [
             {
               model: User,
@@ -472,12 +544,21 @@ export const getAllPropertiesWithHosts = async (req, res) => {
     // WHERE clause
     // -------------------------
     const where = {
-      status:{
-       [Op.in]:["approved","pending"]
-      },
-      is_deleted: false
-    };
+      is_deleted: false,
+      [Op.or]: [
+        // 🔴 Pending = unverified (always visible)
+        { status: "pending" },
 
+        // 🟢 Approved = visible only within 15 days
+        {
+          status: "approved",
+          is_expired: false,
+          listing_expires_at: {
+            [Op.gt]: new Date()
+          }
+        }
+      ]
+    };
     if (country) where.country = country;
     if (state) where.state = state;          // ✅ ADDED
     if (city) where.city = city;
@@ -508,7 +589,7 @@ export const getAllPropertiesWithHosts = async (req, res) => {
       include: [
         {
           model: Host,
-          attributes: ["id", "full_name", "status", "phone", "selfie_photo"],
+          attributes: ["id", "full_name", "phone"],
           include: [
             {
               model: User,
@@ -579,11 +660,12 @@ export const getPropertyById = async (req, res) => {
             "country",
             "state",
             "city",
-            "zip_code", 
+            "zip_code",
             "street_address",
             "status",
-            "id_photo",
-            "selfie_photo"
+            "whatsapp",
+            "instagram",
+            "facebook",
           ],
           include: [
             {
