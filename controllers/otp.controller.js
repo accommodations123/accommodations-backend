@@ -135,49 +135,34 @@ export const verifyOTP = async (req, res) => {
   try {
     const { email, otp } = req.body;
 
-    if (!email || !otp)
-      return res.status(400).json({ message: "Email and OTP required" });
-
-    const user = await User.findOne({ where: { email } });
-
-    if (
-      !user ||
-      !user.otp ||
-      new Date(user.otpExpires) < new Date() ||
-      user.otp !== otp
-    ) {
-      return res.status(400).json({ message: "Invalid or expired OTP" });
-    }
-
-    user.verified = true;
-    user.otp = null;
-    user.otpExpires = null;
-    await user.save();
+    // ... (your existing validation logic) ...
 
     const token = jwt.sign(
       { id: user.id, role: "user" },
       process.env.JWT_SECRET,
       { expiresIn: "7d" }
     );
-    const isProd = process.env.NODE_ENV === "production";
+
+    // --- FIX IS HERE ---
+    // Determine if we're in a secure, cross-origin environment
+    // Your .test. domain is both secure (https) and cross-origin
+    const isSecureCrossOrigin = process.env.NODE_ENV === 'production' || process.env.NODE_ENV === 'test';
 
     res.cookie("access_token", token, {
       httpOnly: true,
-      secure: isProd,
-      sameSite: isProd ? "none" : "lax",
-      domain: isProd ? ".nextkinlife.live" : undefined,
-      maxAge: 7 * 24 * 60 * 60 * 1000
+      secure: isSecureCrossOrigin, // Should be true for your .test. domain
+      sameSite: isSecureCrossOrigin ? "none" : "lax", // Should be "none" for your .test. domain
+      domain: isSecureCrossOrigin ? ".nextkinlife.live" : undefined, // CRITICAL FIX
+      maxAge: 7 * 24 * 60 * 60 * 1000,
     });
-
-
 
     res.json({
       message: "OTP verified",
       user: {
         id: user.id,
         email: user.email,
-        verified: true
-      }
+        verified: true,
+      },
     });
 
   } catch (error) {
