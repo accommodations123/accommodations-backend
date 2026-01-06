@@ -169,6 +169,7 @@ export const verifyOTP = async (req, res) => {
 
     res.json({
       message: "OTP verified",
+      token,
       user: {
         id: user.id,
         email: user.email,
