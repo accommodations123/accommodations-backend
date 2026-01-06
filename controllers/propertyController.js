@@ -33,7 +33,7 @@ export const createDraft = async (req, res) => {
     const property = await Property.create({
       user_id: userId,        // REQUIRED
       host_id: host.id,
-      category_id: Number(categoryId),
+      category_id: categoryId,
       property_type: propertyType,
       privacy_type: privacyType,
       status: "draft"
