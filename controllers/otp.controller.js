@@ -162,7 +162,7 @@ export const verifyOTP = async (req, res) => {
     res.cookie("access_token", token,{
       httpOnly: true,  //JS cannot read it
       secure: process.env.NODE_ENV === "production", //HTTPS only in production
-      sameSite: "strict", //CSRF protection
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax", //CSRF protection
       maxAge: 7 * 24 * 60 * 60 * 1000 //7 days
     })
 

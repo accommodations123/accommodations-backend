@@ -65,7 +65,12 @@ export const adminLogin = async (req, res) => {
       }
 
       // STORE IN CACHE
-      await setCache(`admin:${email}`, admin);
+      await setCache(`admin:${email}`, {
+        id: admin.id,
+        email: admin.email,
+        password: admin.password,
+        role:"admin"
+      });
     }
 
     const checkPass = await bcrypt.compare(password, admin.password);
@@ -75,12 +80,19 @@ export const adminLogin = async (req, res) => {
 
     const token = jwt.sign(
       { id: admin.id, role: "admin" },
-      process.env.JWT_SECRET
+      process.env.JWT_SECRET,
+      {expiresIn: "7d"}
     );
+    res.cookie("access_token",token,{
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite:process.env.NODE_ENV === "production" ? "none" : "lax",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+      path: "/"
+    })
 
     return res.json({
       message: "Admin login successful",
-      token,
       admin: {
         id: admin.id,
         name: admin.name,
