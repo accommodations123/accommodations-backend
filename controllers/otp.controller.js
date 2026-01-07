@@ -168,7 +168,7 @@ export const verifyOTP = async (req, res) => {
       httpOnly: true,
       secure: true,
       sameSite: "none",
-      domain: ".nextkinlife.live",
+      domain: ".test.nextkinlife.live",
       maxAge: 7 * 24 * 60 * 60 * 1000
     });
 
