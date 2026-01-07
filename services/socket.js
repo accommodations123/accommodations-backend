@@ -1,42 +1,38 @@
-// In your server's initSocket.js file - REPLACE EVERYTHING WITH THIS
-
 import { Server } from "socket.io";
 import jwt from "jsonwebtoken";
 import cookie from "cookie";
 
 let io;
 
+/* ============================================================
+   SOCKET INITIALIZATION (COOKIE ONLY)
+============================================================ */
 export const initSocket = (server) => {
   io = new Server(server, {
     cors: {
-      origin: ["https://accomodation.test.nextkinlife.live", "http://localhost:5173"],
+      origin: [
+        "https://accomodation.test.nextkinlife.live",
+        "https://admin.test.nextkinlife.live"
+      ],
       credentials: true
     }
   });
 
-  // 🔐 Authenticate socket using token from auth object OR cookie
+  // 🔐 Authenticate socket using HttpOnly cookie ONLY
   io.use((socket, next) => {
     try {
-      let token = null;
-
-      // 1. First, try to get the token from the `auth` object sent by the client
-      if (socket.handshake.auth && socket.handshake.auth.token) {
-        token = socket.handshake.auth.token;
-      }
-
-      // 2. If no token in auth, fallback to checking for a cookie (for other requests)
       const cookieHeader = socket.handshake.headers.cookie;
-      if (!token && cookieHeader) {
-        const cookies = cookie.parse(cookieHeader);
-        token = cookies.access_token;
+      if (!cookieHeader) {
+        return next(new Error("Authentication required"));
       }
 
-      // 3. If no token was found in either place, reject the connection
+      const cookies = cookie.parse(cookieHeader);
+      const token = cookies.access_token;
+
       if (!token) {
-        return next(new Error("Auth token missing from auth and cookie"));
+        return next(new Error("Authentication required"));
       }
 
-      // 4. Verify the token
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
       socket.user = {
@@ -44,21 +40,19 @@ export const initSocket = (server) => {
         role: decoded.role
       };
 
-      return next();
+      next();
     } catch (err) {
-      console.error("❌ Socket middleware: Error verifying token:", err.message);
-      return next(new Error("Invalid or expired token"));
+      console.error("SOCKET AUTH ERROR:", err.message);
+      next(new Error("Invalid or expired session"));
     }
   });
 
   io.on("connection", (socket) => {
-    console.log("✅ Socket connected:", socket.id, "User:", socket.user.id);
-
-    // ✅ auto-join user room securely
+    console.log("📡 Socket connected:", socket.user.id);
     socket.join(`user:${socket.user.id}`);
 
     socket.on("disconnect", () => {
-      console.log("Socket disconnected:", socket.id);
+      console.log("🔌 Socket disconnected:", socket.user.id);
     });
   });
 

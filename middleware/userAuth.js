@@ -2,9 +2,11 @@ import jwt from "jsonwebtoken";
 import User from "../model/User.js";
 import { getCache, setCache } from "../services/cacheService.js";
 
+/* ============================================================
+   USER AUTH MIDDLEWARE (COOKIE ONLY)
+============================================================ */
 export default async function userAuth(req, res, next) {
   try {
-    // ✅ READ TOKEN FROM COOKIE
     const token = req.cookies?.access_token;
 
     if (!token) {
@@ -19,14 +21,14 @@ export default async function userAuth(req, res, next) {
 
     const userId = Number(decoded.id);
 
-    // ✅ TRY CACHE FIRST
+    // ✅ Cache first
     const cachedUser = await getCache(`user:${userId}`);
     if (cachedUser) {
       req.user = cachedUser;
       return next();
     }
 
-    // 🔥 DB CHECK ONLY IF CACHE MISS
+    // 🔥 DB validation
     const dbUser = await User.findByPk(userId, {
       attributes: ["id", "verified"]
     });
@@ -36,7 +38,7 @@ export default async function userAuth(req, res, next) {
     }
 
     if (!dbUser.verified) {
-      return res.status(401).json({ message: "Please verify your OTP first" });
+      return res.status(401).json({ message: "Verify OTP first" });
     }
 
     const safeUser = {
@@ -44,14 +46,12 @@ export default async function userAuth(req, res, next) {
       role: "user"
     };
 
-    // ✅ CACHE VERIFIED USER
     await setCache(`user:${userId}`, safeUser, 600);
-
     req.user = safeUser;
-    next();
 
+    next();
   } catch (err) {
     console.error("AUTH ERROR:", err);
-    return res.status(401).json({ message: "Invalid or expired token" });
+    return res.status(401).json({ message: "Session expired" });
   }
 }

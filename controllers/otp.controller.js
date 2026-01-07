@@ -127,16 +127,17 @@ export const sendOTP = async (req, res) => {
   }
 };
 
-/* ============================================================
-   VERIFY OTP
-============================================================ */
 
+/* ============================================================
+   VERIFY OTP (PRODUCTION)
+============================================================ */
 export const verifyOTP = async (req, res) => {
   try {
     const { email, otp } = req.body;
 
-    if (!email || !otp)
+    if (!email || !otp) {
       return res.status(400).json({ message: "Email and OTP required" });
+    }
 
     const user = await User.findOne({ where: { email } });
 
@@ -149,27 +150,31 @@ export const verifyOTP = async (req, res) => {
       return res.status(400).json({ message: "Invalid or expired OTP" });
     }
 
+    // ✅ Mark user verified
     user.verified = true;
     user.otp = null;
     user.otpExpires = null;
     await user.save();
 
+    // ✅ Generate JWT (SERVER ONLY)
     const token = jwt.sign(
       { id: user.id, role: "user" },
       process.env.JWT_SECRET,
       { expiresIn: "7d" }
     );
-   res.cookie("access_token", token, {
-  httpOnly: true,
-  secure: true,       // Required for SameSite=None
-  sameSite: "none",   // Allows cross-origin requests
-  domain: ".nextkinlife.live", // Allows sharing across subdomains
-  maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-});
 
-    res.json({
-      message: "OTP verified",
-      token,
+    // ✅ Set secure cookie (single source of truth)
+    res.cookie("access_token", token, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "none",
+      domain: ".nextkinlife.live",
+      maxAge: 7 * 24 * 60 * 60 * 1000
+    });
+
+    // ❌ NEVER return token to frontend
+    return res.json({
+      message: "OTP verified successfully",
       user: {
         id: user.id,
         email: user.email,
@@ -177,9 +182,10 @@ export const verifyOTP = async (req, res) => {
       }
     });
 
-  } catch (error) {
-    console.error("VERIFY OTP ERROR:", error);
-    res.status(500).json({ message: "Server error" });
+  } catch (err) {
+    console.error("VERIFY OTP ERROR:", err);
+    return res.status(500).json({ message: "Server error" });
   }
 };
+
 
