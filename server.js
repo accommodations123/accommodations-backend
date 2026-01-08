@@ -33,18 +33,20 @@ import travelRoutes from './routes/travel/travelRoutes.js'
     console.log("MySQL connected");
 
     const app = express();
+    /* ================= CORS (REST + COOKIES) ================= */
     const allowedOrigins = [
       "https://accomodation.test.nextkinlife.live",
       "https://accomodation.admin.test.nextkinlife.live",
-      "http://localhost:5000",
-      "http://localhost:5173"
+      "http://localhost:5173",
+      "http://localhost:5000"
     ];
+
     app.use(
       cors({
-        origin: (origin, callback) => {
-          if (!origin) return callback(null, true);
-          if (allowedOrigins.includes(origin)) return callback(null, true);
-          return callback(new Error("CORS not allowed"));
+        origin(origin, cb) {
+          if (!origin) return cb(null, true); // server-to-server
+          if (allowedOrigins.includes(origin)) return cb(null, true);
+          return cb(new Error("CORS blocked"));
         },
         credentials: true
       })
