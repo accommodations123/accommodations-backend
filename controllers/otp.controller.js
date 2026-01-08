@@ -139,7 +139,7 @@ export const verifyOTP = async (req, res) => {
       return res.status(400).json({ message: "Email and OTP required" });
     }
 
-    const user = await User.findOne({ where: { email } });
+    const user = await User.findOne({ where: { email } })
 
     if (
       !user ||
