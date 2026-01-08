@@ -195,18 +195,18 @@ export const verifyOTP = async (req, res) => {
   }
 };
 // controllers/auth.controller.js
-export const logout = (req, res) => {
-  const isProd = process.env.NODE_ENV === "production";
+  export const logout = (req, res) => {
+    const isProd = process.env.NODE_ENV === "production";
 
-  res.clearCookie("access_token", {
-    httpOnly: true,
-    secure: isProd,
-    sameSite: isProd ? "none" : "lax",
-    domain: isProd ? ".test.nextkinlife.live" : undefined,
-  });
+    res.clearCookie("access_token", {
+      httpOnly: true,
+      secure: isProd,
+      sameSite: isProd ? "none" : "lax",
+      domain: isProd ? ".test.nextkinlife.live" : undefined,
+    });
 
-  return res.json({ success: true, message: "Logged out" });
-};
+    return res.json({ success: true, message: "Logged out" });
+  };
 
 
 
