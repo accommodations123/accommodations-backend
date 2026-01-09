@@ -1,4 +1,5 @@
 import { Server } from "socket.io";
+import jwt from "jsonwebtoken";
 import cookie from "cookie";
 
 let io;
@@ -21,38 +22,33 @@ export const initSocket = (server) => {
 
   // Authenticate socket using HttpOnly cookie
   io.use(async (socket, next) => {
-  try {
-    const cookieHeader = socket.handshake.headers.cookie;
-    if (!cookieHeader) {
-      return next(new Error("Authentication required"));
+    try {
+      const cookieHeader = socket.handshake.headers.cookie;
+      if (!cookieHeader) {
+        return next(new Error("Authentication required"));
+      }
+
+      const cookies = cookie.parse(cookieHeader);
+      const token = cookies.access_token;
+
+      if (!token) {
+        return next(new Error("Authentication required"));
+      }
+
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+      // Add user info to socket
+      socket.user = {
+        id: decoded.id,
+        role: decoded.role
+      };
+
+      next();
+    } catch (err) {
+      console.error("SOCKET AUTH ERROR:", err.message);
+      next(new Error("Invalid or expired session"));
     }
-
-    const cookies = cookie.parse(cookieHeader);
-    const sessionId = cookies.session_id;
-
-    if (!sessionId) {
-      return next(new Error("Authentication required"));
-    }
-
-    const session = await redis.get(`session:${sessionId}`);
-    if (!session) {
-      return next(new Error("Session expired"));
-    }
-
-    const data = JSON.parse(session);
-
-    socket.user = {
-      id: data.userId,
-      role: data.role
-    };
-
-    next();
-  } catch (err) {
-    console.error("SOCKET SESSION ERROR:", err);
-    next(new Error("Invalid session"));
-  }
-});
-
+  });
 
   io.on("connection", (socket) => {
     console.log("📡 Socket connected:", socket.user.id);
