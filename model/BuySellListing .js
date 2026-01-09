@@ -71,11 +71,11 @@ const BuySellListing = sequelize.define(
             allowNull: false
         },
 
-        email: {
-            type: DataTypes.STRING(150),
-            allowNull: false,
-            validate: { isEmail: true }
-        },
+        // email: {
+        //     type: DataTypes.STRING(150),
+        //     allowNull: false,
+        //     validate: { isEmail: true }
+        // },
 
         phone: {
             type: DataTypes.STRING(20),

@@ -344,6 +344,65 @@ export const getPendingItems = async (req, res) => {
   }
 };
 
+export const getAdminDashboardStats = async (req, res) => {
+  try {
+    const cacheKey = "admin:dashboard:stats";
+    const cached = await getCache(cacheKey);
+
+    if (cached) {
+      return res.json({ success: true, stats: cached });
+    }
+
+    const [
+      totalEvents,
+      approvedEvents,
+      pendingEvents,
+      rejectedEvents,
+      deletedEvents,
+      totalHosts,
+      pendingHosts,
+      totalUsers
+    ] = await Promise.all([
+      Event.count(),
+      Event.count({ where: { status: "approved", is_deleted: false } }),
+      Event.count({ where: { status: "pending", is_deleted: false } }),
+      Event.count({ where: { status: "rejected", is_deleted: false } }),
+      Event.count({ where: { is_deleted: true } }),
+      Host.count(),
+      Host.count({ where: { status: "pending" } }),
+      User.count()
+    ]);
+
+    const stats = {
+      events: {
+        total: totalEvents,
+        approved: approvedEvents,
+        pending: pendingEvents,
+        rejected: rejectedEvents,
+        deleted: deletedEvents
+      },
+      hosts: {
+        total: totalHosts,
+        pending: pendingHosts
+      },
+      users: {
+        total: totalUsers
+      }
+    };
+
+    await setCache(cacheKey, stats, 300);
+
+    return res.json({
+      success: true,
+      stats
+    });
+
+  } catch (err) {
+    console.error("ADMIN DASHBOARD STATS ERROR:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
 
 // ======================================================
 // APPROVE EVENT
@@ -753,4 +812,5 @@ export const softDeleteEvent = async (req, res) => {
     return res.status(500).json({ message: "Server error" });
   }
 };
+
 

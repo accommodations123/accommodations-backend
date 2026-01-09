@@ -71,11 +71,13 @@ export const createBuySellListing = async (req, res) => {
             message: "Listing submitted for approval",
             listing
         });
-    } catch (err) {
-        return res.status(500).json({
-            message: "Failed to create listing"
-        });
-    }
+   } catch (err) {
+  console.error("CREATE BUY SELL ERROR:", err);
+  return res.status(500).json({
+    message: err.message
+  });
+}
+
 };
 
 

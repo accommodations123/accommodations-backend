@@ -173,6 +173,15 @@ export const verifyOTP = async (req, res) => {
       domain: isProd ? ".test.nextkinlife.live" : undefined,
       maxAge: 7 * 24 * 60 * 60 * 1000
     });
+//     const isPostman = req.headers["user-agent"]?.includes("Postman");
+
+// res.cookie("access_token", token, {
+//   httpOnly: true,
+//   secure: !isPostman,
+//   sameSite: isPostman ? "lax" : "none",
+//   domain: isPostman ? undefined : ".test.nextkinlife.live"
+// });
+
 
 
     // ❌ NEVER return token to frontend
