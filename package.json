@@ -3,9 +3,9 @@
   "version": "1.0.0",
   "type": "module",
   "main": "server.js",
- "scripts": {
-  "dev": "NODE_ENV=development nodemon your-server-file.js"
-},
+  "scripts": {
+    "dev": "NODE_ENV=development nodemon your-server-file.js"
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",
@@ -30,6 +30,7 @@
     "nodemailer": "^7.0.11",
     "rate-limiter-flexible": "^9.0.0",
     "sequelize": "^6.37.7",
-    "socket.io": "^4.8.3"
+    "socket.io": "^4.8.3",
+    "uuid": "^13.0.0"
   }
 }
