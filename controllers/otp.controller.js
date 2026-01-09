@@ -179,17 +179,17 @@ export const verifyOTP = async (req, res) => {
     /* =====================================================
        2️⃣ SOCKET AUTH → SESSION (REDIS)
     ===================================================== */
-    const sessionId = uuid();
+    // const sessionId = uuid();
 
-    await redis.set(
-      `session:${sessionId}`,
-      JSON.stringify({
-        userId: user.id,
-        role: "user"
-      }),
-      "EX",
-      7 * 24 * 60 * 60
-    );
+    // await redis.set(
+    //   `session:${sessionId}`,
+    //   JSON.stringify({
+    //     userId: user.id,
+    //     role: "user"
+    //   }),
+    //   "EX",
+    //   7 * 24 * 60 * 60
+    // );
 
     res.cookie("session_id", sessionId, {
       httpOnly: true,
