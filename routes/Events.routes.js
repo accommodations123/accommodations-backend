@@ -34,28 +34,28 @@ const router = express.Router();
 ----------------------------------------- */
 
 // Create draft
-router.post("/create-draft", userauth,hostOnly, createEventDraft);
+router.post("/create-draft", userauth, createEventDraft);
 
 // Update basic info
-router.put("/basic-info/:id", userauth,hostOnly,loadEvent, updateBasicInfo);
+router.put("/basic-info/:id", userauth,loadEvent, updateBasicInfo);
 
 // Update location
-router.put("/location/:id", userauth,hostOnly,loadEvent, updateLocation);
+router.put("/location/:id", userauth,loadEvent, updateLocation);
 
 // Update venue + what's included
-router.put("/venue/:id", userauth,hostOnly,loadEvent, updateVenue);
+router.put("/venue/:id", userauth,loadEvent, updateVenue);
 
 // Update schedule (JSON array)
-router.put("/schedule/:id", userauth,hostOnly,loadEvent, updateSchedule);
+router.put("/schedule/:id", userauth,loadEvent, updateSchedule);
 
 // Upload banner + gallery
-router.put("/media/:id",userauth,hostOnly,loadEvent,uploadEventImages.fields([{ name: "bannerImage", maxCount: 1 },{ name: "galleryImages", maxCount: 10 }]),multerErrorHandler,updateMedia);
+router.put("/media/:id",userauth,loadEvent,uploadEventImages.fields([{ name: "bannerImage", maxCount: 1 },{ name: "galleryImages", maxCount: 10 }]),multerErrorHandler,updateMedia);
 
 // Update pricing
-router.put("/pricing/:id", userauth,hostOnly,loadEvent, updatePricing);
+router.put("/pricing/:id", userauth,loadEvent, updatePricing);
 
 // Submit event for admin approval
-router.put("/submit/:id", userauth,hostOnly,loadEvent, submitEvent);
+router.put("/submit/:id", userauth,loadEvent, submitEvent);
 
 //USER ACTIONS FOR EVENTS
 
@@ -63,9 +63,9 @@ router.post("/:id/join", userauth, joinEvent);
 router.post("/:id/leave", userauth, leaveEvent);
 
 // Host’s own events (My Events)
-router.get("/host/my-events", userauth,hostOnly, getMyEvents);
+router.get("/host/my-events", userauth, getMyEvents);
 // Safe delete event (host only)
-router.delete("/delete/:id",userauth,hostOnly,loadEvent,softDeleteEvent);
+router.delete("/delete/:id",userauth,loadEvent,softDeleteEvent);
 
 
 /* -----------------------------------------
