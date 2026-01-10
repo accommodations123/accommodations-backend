@@ -438,7 +438,7 @@ export const approveEvent = async (req, res) => {
 
     // 🔔 WebSocket notification
     const io = getIO();
-    io.to(`user:${event.host_id}`).emit("notification", {
+    io.to(`user:${event.Host.user_id}`).emit("notification", {
       type: "EVENT_APPROVED",
       title: "Event Approved",
       message: "Your event has been approved and is now live",
