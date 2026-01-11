@@ -438,7 +438,7 @@ export const approveEvent = async (req, res) => {
 
     // 🔔 WebSocket notification
     const io = getIO();
-    io.to(`user:${event.host_id}`).emit("notification", {
+    io.to(`user:${event.Host.user_id}`).emit("notification", {
       type: "EVENT_APPROVED",
       title: "Event Approved",
       message: "Your event has been approved and is now live",
@@ -797,10 +797,10 @@ export const softDeleteEvent = async (req, res) => {
 
     await event.update({ is_deleted: true });
 
-    await deleteCache(`event:${event.id}`);
-    await deleteCacheByPrefix("approved_events:");
-    await deleteCacheByPrefix("pending_events:");
-    await deleteCacheByPrefix(`host_events:${event.host_id}`);
+    // await deleteCache(`event:${event.id}`);
+    // await deleteCacheByPrefix("approved_events:");
+    // await deleteCacheByPrefix("pending_events:");
+    // await deleteCacheByPrefix(`host_events:${event.host_id}`);
 
     return res.json({
       success: true,

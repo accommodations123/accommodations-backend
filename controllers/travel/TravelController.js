@@ -315,3 +315,147 @@ export const travelMatchAction = async (req, res) => {
   }
 };
 
+
+//ADMIN CONTROLLERS
+
+export const adminGetAllTrips = async (req, res) => {
+  try {
+    const { page = 1, limit = 20, status } = req.query;
+    const offset = (page - 1) * limit;
+
+    const where = {};
+    if (status) where.status = status;
+
+    const trips = await TravelTrip.findAll({
+      where,
+      limit: Number(limit),
+      offset,
+      order: [["created_at", "DESC"]],
+      include: [
+        {
+          model: Host,
+          as: "host",
+          attributes: ["id", "full_name", "country", "city"],
+          include: [
+            {
+              model: User,
+              attributes: ["email", "verified"]
+            }
+          ]
+        }
+      ]
+    });
+
+    return res.json({
+      success: true,
+      page: Number(page),
+      results: trips
+    });
+
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+
+export const adminCancelTrip = async (req, res) => {
+  try {
+    const { trip_id } = req.params;
+
+    const trip = await TravelTrip.findByPk(trip_id);
+    if (!trip) {
+      return res.status(404).json({ message: "Trip not found" });
+    }
+
+    trip.status = "cancelled";
+    await trip.save();
+
+    return res.json({
+      success: true,
+      message: "Trip cancelled by admin"
+    });
+
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+
+
+export const adminGetAllMatches = async (req, res) => {
+  try {
+    const { page = 1, limit = 20, status } = req.query;
+    const offset = (page - 1) * limit;
+
+    const where = {};
+    if (status) where.status = status;
+
+    const matches = await TravelMatch.findAll({
+      where,
+      limit: Number(limit),
+      offset,
+      order: [["created_at", "DESC"]]
+    });
+
+    return res.json({
+      success: true,
+      page: Number(page),
+      results: matches
+    });
+
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+
+export const adminCancelMatch = async (req, res) => {
+  try {
+    const { match_id } = req.params;
+
+    const match = await TravelMatch.findByPk(match_id);
+    if (!match) {
+      return res.status(404).json({ message: "Match not found" });
+    }
+
+    match.status = "cancelled";
+    await match.save();
+
+    return res.json({
+      success: true,
+      message: "Match cancelled by admin"
+    });
+
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+
+export const adminBlockHost = async (req, res) => {
+  try {
+    const { host_id } = req.params;
+
+    const host = await Host.findByPk(host_id);
+    if (!host) {
+      return res.status(404).json({ message: "Host not found" });
+    }
+
+    host.status = "rejected";
+    host.rejection_reason = "Blocked by admin";
+    await host.save();
+
+    return res.json({
+      success: true,
+      message: "Host blocked successfully"
+    });
+
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: "Server error" });
+  }
+};

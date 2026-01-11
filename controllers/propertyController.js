@@ -410,19 +410,25 @@ export const getMyListings = async (req, res) => {
 
 export const softDeleteProperty = async (req, res) => {
   try {
+    if (!req.property) {
+      return res.status(500).json({ message: "Property not loaded" });
+    }
+
     const property = req.property;
     const userId = req.user.id;
-    const { reason } = req.body;
+    const reason = req.body?.reason || null;
 
     await property.update({
       is_deleted: true,
       deleted_at: new Date(),
       deleted_by: userId,
-      delete_reason: reason || null
+      delete_reason: reason
     });
 
     await deleteCache(`property:${property.id}`);
-    await deleteCacheByPrefix(`host_listings:${property.host_id}`);
+    await deleteCacheByPrefix(`user_listings:${userId}`);
+    await deleteCacheByPrefix("approved_listings:");
+    await deleteCacheByPrefix("all_properties:");
 
     return res.json({
       success: true,
@@ -430,9 +436,13 @@ export const softDeleteProperty = async (req, res) => {
     });
 
   } catch (err) {
-    return res.status(500).json({ message: "Server error" });
+    console.error("SOFT DELETE PROPERTY ERROR:", err);
+    return res.status(500).json({ message: err.message });
   }
 };
+
+
+
 
 
 // FRONTEND APPROVED LISTINGS

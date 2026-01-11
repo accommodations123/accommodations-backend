@@ -3,10 +3,16 @@ import {
   createTrip,
   searchTrips,
   myTrips,
-  travelMatchAction
+  travelMatchAction,
+  adminGetAllTrips,
+  adminCancelTrip,
+  adminGetAllMatches,
+  adminCancelMatch,
+  adminBlockHost
 } from "../../controllers/travel/TravelController.js";
 
 import userAuth from "../../middleware/userAuth.js";
+import adminAuth from "../../middleware/adminAuth.js";
 
 const router = express.Router();
 
@@ -29,5 +35,16 @@ router.get("/trips/me",userAuth,myTrips);
 
 // Unified match action controller
 router.post("/matches/action",userAuth,travelMatchAction);
+
+
+//ADMIN ROUTES
+router.get("/admin/trips",adminAuth,adminGetAllTrips)
+router.put("/admin/trips/:trip_id/cancel",adminAuth,adminCancelTrip)
+
+router.get("/matches",adminAuth,adminGetAllMatches)
+router.put("/admin/matches/:match_id/cancel",adminAuth,adminCancelMatch)
+
+//Hosts
+router.put("/admin/hosts/:host_id/block",adminAuth,adminBlockHost)
 
 export default router;
