@@ -1,3 +1,5 @@
+import dotenv from "dotenv";
+dotenv.config();
 import axios from "axios";
 import jwt from "jsonwebtoken";
 import User from "../../model/User.js";
@@ -22,7 +24,7 @@ export const googleCallback = async (req, res) => {
   try {
     const { code } = req.query;
     if (!code) {
-      return res.redirect(`${process.env.FRONTEND_URL}/signin`);
+      return res.redirect("https://accomodation.test.nextkinlife.live");
     }
 
     const tokenRes = await axios.post(GOOGLE_TOKEN_URL, {
@@ -41,7 +43,7 @@ export const googleCallback = async (req, res) => {
 
     const { id: googleId, email, name, picture } = profileRes.data;
     if (!email) {
-      return res.redirect(`${process.env.FRONTEND_URL}/signin`);
+      res.redirect("https://accomodation.test.nextkinlife.live");
     }
 
     let user = await User.findOne({ where: { email } });
@@ -70,10 +72,11 @@ export const googleCallback = async (req, res) => {
       path: "/"
     });
 
-    res.redirect(process.env.FRONTEND_URL);
+        // ✅ CORRECT FIX
+    res.redirect("https://accomodation.test.nextkinlife.live");
   } catch (err) {
     console.error("GOOGLE AUTH ERROR:", err.response?.data || err);
-    res.redirect(`${process.env.FRONTEND_URL}/signin`);
+    res.redirect("https://accomodation.test.nextkinlife.live");
   }
 };
 
