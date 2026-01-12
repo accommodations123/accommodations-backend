@@ -21,12 +21,10 @@ export const googleLogin = (req, res) => {
 export const googleCallback = async (req, res) => {
   try {
     const { code } = req.query;
-
     if (!code) {
-      return res.status(400).json({ message: "Authorization code missing" });
+      return res.redirect(`${process.env.FRONTEND_URL}/signin`);
     }
 
-    /* Exchange code for access token */
     const tokenRes = await axios.post(GOOGLE_TOKEN_URL, {
       client_id: process.env.GOOGLE_CLIENT_ID,
       client_secret: process.env.GOOGLE_CLIENT_SECRET,
@@ -37,65 +35,45 @@ export const googleCallback = async (req, res) => {
 
     const { access_token } = tokenRes.data;
 
-    /* Fetch Google user profile */
     const profileRes = await axios.get(GOOGLE_USERINFO_URL, {
-      headers: {
-        Authorization: `Bearer ${access_token}`
-      }
+      headers: { Authorization: `Bearer ${access_token}` }
     });
 
-    const {
-      id: googleId,
-      email,
-      name,
-      picture
-    } = profileRes.data;
-
+    const { id: googleId, email, name, picture } = profileRes.data;
     if (!email) {
-      return res.status(400).json({
-        message: "Google account has no email"
-      });
+      return res.redirect(`${process.env.FRONTEND_URL}/signin`);
     }
 
-    /* Find or create user */
-    let user = await User.findOne({
-      where: { email }
-    });
-
+    let user = await User.findOne({ where: { email } });
     if (!user) {
       user = await User.create({
         email,
         google_id: googleId,
-        name,          // if column exists
-        profile_image: picture // if column exists
+        name,
+        profile_image: picture,
+        verified: true
       });
     }
 
-    /* Issue your own JWT */
     const token = jwt.sign(
-      {
-        id: user.id,
-        role: "user"
-      },
+      { id: user.id, role: "user" },
       process.env.JWT_SECRET,
       { expiresIn: "7d" }
     );
 
-    /* Redirect or respond */
-    return res.json({
-      success: true,
-      token,
-      user: {
-        id: user.id,
-        email,
-        name
-      }
+    res.cookie("token", token, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "None",
+      domain: ".nextkinlife.live",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+      path: "/"
     });
 
+    res.redirect(process.env.FRONTEND_URL);
   } catch (err) {
     console.error("GOOGLE AUTH ERROR:", err.response?.data || err);
-    return res.status(500).json({
-      message: "Google authentication failed"
-    });
+    res.redirect(`${process.env.FRONTEND_URL}/signin`);
   }
 };
+

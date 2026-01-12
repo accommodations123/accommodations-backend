@@ -158,7 +158,7 @@ export const verifyOTP = async (req, res) => {
 
     // ✅ Generate JWT (SERVER ONLY)
     const token = jwt.sign(
-      { id: user.id, role: "user" },
+      { id: user.id, role: user.role },
       process.env.JWT_SECRET,
       { expiresIn: "7d" }
     );
@@ -198,15 +198,15 @@ export const verifyOTP = async (req, res) => {
 };
 
 
-export const logout = (req, res) => {
-  const isProd = process.env.NODE_ENV === "production";
+// export const logout = (req, res) => {
+//   const isProd = process.env.NODE_ENV === "production";
 
-  res.clearCookie("access_token", {
-    httpOnly: true,
-    secure: isProd,
-    sameSite: isProd ? "none" : "lax",
-    domain: isProd ? ".test.nextkinlife.live" : undefined,
-  });
+//   res.clearCookie("access_token", {
+//     httpOnly: true,
+//     secure: isProd,
+//     sameSite: isProd ? "none" : "lax",
+//     domain: isProd ? ".test.nextkinlife.live" : undefined,
+//   });
 
-  return res.json({ success: true, message: "Logged out" });
-};
+//   return res.json({ success: true, message: "Logged out" });
+// };
