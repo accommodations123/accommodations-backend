@@ -13,14 +13,14 @@ export default async function userAuth(req, res, next) {
 
     const userId = Number(decoded.id);
 
-    // 1️⃣ Try cache
-    const cachedUser = await getCache(`user:${userId}`);
-    if (cachedUser?.verified === true) {
-      req.user = cachedUser;
+    // 1️⃣ Cache
+    const cached = await getCache(`user:${userId}`);
+    if (cached?.verified === true) {
+      req.user = cached;     // contains role + email + image
       return next();
     }
 
-    // 2️⃣ Load from DB
+    // 2️⃣ DB
     const dbUser = await User.findByPk(userId, {
       attributes: ["id", "email", "name", "profile_image", "verified", "role"]
     });
@@ -30,7 +30,7 @@ export default async function userAuth(req, res, next) {
 
     const userJson = dbUser.toJSON();
 
-    // 3️⃣ Cache full user
+    // 3️⃣ Cache FULL user (including role)
     await setCache(`user:${userId}`, userJson, 600);
 
     req.user = userJson;
