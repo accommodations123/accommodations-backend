@@ -349,40 +349,43 @@ export const publicBrowseTrips = async (req, res) => {
       order: [["travel_date", "ASC"]],
       limit: safeLimit,
       offset,
-      include: [
-        {
-          model: Host,
-          as: "host",
-          attributes: ["full_name", "country", "city"],
-          include: [
-            {
-              model: User,
-              attributes: ["profile_image"] // 👈 SOURCE OF IMAGE
-            }
-          ]
-        }
-      ]
+     include: [
+  {
+    model: Host,
+    as: "host",
+    attributes: ["full_name", "country", "city"],
+    include: [
+      {
+        model: User,
+        as: "user",                 // 🔥 THIS WAS MISSING
+        attributes: ["profile_image"]
+      }
+    ]
+  }
+]
+
     });
 
     // 🔁 Shape response (clean + stable)
     const results = trips.map(trip => {
-      const t = trip.toJSON();
+  const t = trip.toJSON();
 
-      return {
-        id: t.id,
-        from_country: t.from_country,
-        from_city: t.from_city,
-        to_country: t.to_country,
-        to_city: t.to_city,
-        travel_date: t.travel_date,
-        host: {
-          full_name: t.host.full_name,
-          country: t.host.country,
-          city: t.host.city,
-          profile_image: t.host.User?.profile_image || null
-        }
-      };
-    });
+  return {
+    id: t.id,
+    from_country: t.from_country,
+    from_city: t.from_city,
+    to_country: t.to_country,
+    to_city: t.to_city,
+    travel_date: t.travel_date,
+    host: {
+      full_name: t.host.full_name,
+      country: t.host.country,
+      city: t.host.city,
+      profile_image: t.host.user?.profile_image || null
+    }
+  };
+});
+
 
     return res.json({
       success: true,
