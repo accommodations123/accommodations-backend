@@ -455,45 +455,45 @@ export const publicSearchTrips = async (req, res) => {
     return res.status(500).json({ message: "Server error" });
   }
 };
-export const publicTripPreview = async (req, res) => {
-  try {
-    const { trip_id } = req.params;
+  export const publicTripPreview = async (req, res) => {
+    try {
+      const { trip_id } = req.params;
 
-    const trip = await TravelTrip.findOne({
-      where: { id: trip_id, status: "active" },
-      attributes: [
-        "id",
-        "from_country",
-        "from_city",
-        "to_country",
-        "to_city",
-        "travel_date",
-        "departure_time",
-        "airline"
-      ],
-      include: [
-        {
-          model: Host,
-          as: "host",
-          attributes: ["full_name", "country", "city"]
-        }
-      ]
-    });
+      const trip = await TravelTrip.findOne({
+        where: { id: trip_id, status: "active" },
+        attributes: [
+          "id",
+          "from_country",
+          "from_city",
+          "to_country",
+          "to_city",
+          "travel_date",
+          "departure_time",
+          "airline"
+        ],
+        include: [
+          {
+            model: Host,
+            as: "host",
+            attributes: ["full_name", "country", "city"]
+          }
+        ]
+      });
 
-    if (!trip) {
-      return res.status(404).json({ message: "Trip not found" });
+      if (!trip) {
+        return res.status(404).json({ message: "Trip not found" });
+      }
+
+      return res.json({
+        success: true,
+        trip
+      });
+
+    } catch (err) {
+      console.error(err);
+      return res.status(500).json({ message: "Server error" });
     }
-
-    return res.json({
-      success: true,
-      trip
-    });
-
-  } catch (err) {
-    console.error(err);
-    return res.status(500).json({ message: "Server error" });
-  }
-};
+  };
 
 
 

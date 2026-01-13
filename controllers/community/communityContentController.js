@@ -95,7 +95,8 @@ if (!isOwner && community.members_count <= 0) {
       user_id: userId,
       content: content || null,
       media_urls: uploadedMedia,
-      media_type: mediaType
+      media_type: mediaType,
+       status: "active"
     });
 
     /* 7️⃣ Increment post count (atomic) */
