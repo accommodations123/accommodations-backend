@@ -1,6 +1,7 @@
 import Community from "../../model/community/Community.js";
 import CommunityPost from "../../model/community/CommunityPost.js";
 import CommunityResource from "../../model/community/CommunityResource.js";
+import CommunityMember from "../../model/community/CommunityMember.js";
 import User from "../../model/User.js";
 import Host from "../../model/Host.js";
 import { getCache, setCache, deleteCache, deleteCacheByPrefix } from "../../services/cacheService.js";
@@ -64,7 +65,7 @@ export const createPost = async (req, res) => {
     /* MEMBERSHIP CHECK (O(1) INDEXED) */
     const member = await CommunityMember.findOne({
       where: { community_id: communityId, user_id: userId },
-      attributes:["role"]
+      attributes: ["role"]
     });
 
     if (!member) {
@@ -86,12 +87,27 @@ export const createPost = async (req, res) => {
     });
 
     const post = await CommunityPost.findByPk(created.id, {
-      include: [{
-        model: User,
-        as: "author",
-        attributes: ["id", "name", "profile_image"]
-      }]
+      include: [
+        {
+          model: User,
+          as: "author",
+          attributes: ["id","profile_image"],   // keep user minimal
+          include: [
+            {
+              model: Host,
+              attributes: [
+                "full_name",
+                "country",
+                "state",
+                "city",
+                "status"
+              ]
+            }
+          ]
+        }
+      ]
     });
+
 
     await Community.increment("posts_count", {
       where: { id: communityId }
@@ -127,11 +143,25 @@ export const getFeed = async (req, res) => {
       order: [["createdAt", "DESC"]],
       limit,
       offset,
-      include: [{
-        model: User,
-        as: "author",
-        attributes: ["id", "name", "profile_image"]
-      }]
+      include: [
+        {
+          model: User,
+          as: "author",
+          attributes: ["id","profile_image"], // keep minimal
+          include: [
+            {
+              model: Host,
+              attributes: [
+                "full_name",
+                "country",
+                "state",
+                "city",
+                "status"
+              ]
+            }
+          ]
+        }
+      ]
     });
 
     return res.json({
@@ -147,6 +177,7 @@ export const getFeed = async (req, res) => {
     });
   }
 };
+
 
 
 

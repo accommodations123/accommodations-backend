@@ -1,5 +1,6 @@
 import Community from "../../model/community/Community.js";
 import Event from "../../model/Events.models.js";
+import CommunityMember from "../../model/community/CommunityMember.js";
 import { setCache, getCache, deleteCache, deleteCacheByPrefix } from "../../services/cacheService.js";
 
 /* CREATE COMMUNITY */
@@ -128,95 +129,88 @@ export const getCommunityById = async (req, res) => {
 
 
 /* JOIN COMMUNITY */
+
 export const joinCommunity = async (req, res) => {
   try {
     const userId = req.user.id;
-    const community = await Community.findByPk(req.params.id);
+    const communityId = Number(req.params.id);
 
-    if (!community) {
+    const community = await Community.findByPk(communityId);
+    if (!community || community.status !== "active") {
       return res.status(404).json({ message: "Community not found" });
     }
 
-    const members = community.members || [];
-
-    if (members.some(m => m.user_id === userId)) {
-      return res.status(400).json({ message: "Already a member" });
-    }
-
-    members.push({ user_id: userId, role: "member" });
-    community.members = members;
-
-    await community.save();
-
-    await Community.increment("members_count", {
-      where: { id: community.id }
+    // Check if already a member
+    const existing = await CommunityMember.findOne({
+      where: {
+        community_id: communityId,
+        user_id: userId
+      }
     });
 
+    if (existing) {
+      return res.status(400).json({
+        message: "Already a member"
+      });
+    }
 
-    /* CACHE INVALIDATION */
-    await deleteCache(`community:id:${community.id}`);
-    await deleteCacheByPrefix("communities:list:");
+    // Insert membership
+    await CommunityMember.create({
+      community_id: communityId,
+      user_id: userId,
+      role: "member"
+    });
 
-    return res.json({ success: true, message: "Joined community" });
-  } catch {
-    return res.status(500).json({ message: "Join failed" });
+    // Update counter (display only)
+    await Community.increment("members_count", {
+      where: { id: communityId }
+    });
+
+    return res.json({
+      success: true,
+      message: "Joined community successfully"
+    });
+
+  } catch (err) {
+    console.error("JOIN COMMUNITY ERROR:", err);
+    return res.status(500).json({
+      message: "Failed to join community"
+    });
   }
 };
 
 
-/* LEAVE COMMUNITY */
+
 /* LEAVE COMMUNITY */
 export const leaveCommunity = async (req, res) => {
   try {
     const userId = req.user.id;
-    const communityId = req.params.id;
+    const communityId = Number(req.params.id);
 
-    const community = await Community.findByPk(communityId);
+    const member = await CommunityMember.findOne({
+      where: {
+        community_id: communityId,
+        user_id: userId
+      }
+    });
 
-    if (!community) {
-      return res.status(404).json({
-        success: false,
-        message: "Community not found"
-      });
-    }
-
-    const members = community.members || [];
-
-    const memberIndex = members.findIndex(
-      m => m.user_id === userId
-    );
-
-    if (memberIndex === -1) {
+    if (!member) {
       return res.status(400).json({
-        success: false,
-        message: "You are not a member of this community"
+        message: "You are not a member"
       });
     }
 
-    const memberRole = members[memberIndex].role;
-
-    /* OWNER CANNOT LEAVE */
-    if (memberRole === "owner") {
+    if (member.role === "owner") {
       return res.status(400).json({
-        success: false,
-        message: "Community owner cannot leave the community"
+        message: "Owner cannot leave the community"
       });
     }
 
-    /* REMOVE MEMBER */
-    members.splice(memberIndex, 1);
-    community.members = members;
-
-    await community.save();
+    await member.destroy();
 
     await Community.decrement("members_count", {
       where: { id: communityId }
     });
-
-
-    /* 🔥 CACHE INVALIDATION */
-    await deleteCache(`community:id:${communityId}`);
-    await deleteCacheByPrefix("communities:list:");
 
     return res.json({
       success: true,
@@ -224,12 +218,13 @@ export const leaveCommunity = async (req, res) => {
     });
 
   } catch (err) {
+    console.error("LEAVE COMMUNITY ERROR:", err);
     return res.status(500).json({
-      success: false,
       message: "Failed to leave community"
     });
   }
 };
+
 
 
 /* LIST COMMUNITIES (LOCATION BASED) */
