@@ -25,6 +25,7 @@ import communities from './routes/community/communityRoutes.js'
 import communityContentRoutes from './routes/community/communityContentRoutes.js'
 import authRoutes from './routes/auth/googleAuthroutes.js'
 import travelRoutes from './routes/travel/travelRoutes.js'
+import CarrerRoutes from './routes/carrer/careers.routes.js'
 (async () => {
   try {
     await sequelize.authenticate();
@@ -69,6 +70,7 @@ import travelRoutes from './routes/travel/travelRoutes.js'
     app.use('/community', communityContentRoutes)
     app.use('/auth', authRoutes)
     app.use('/travel', travelRoutes)
+    app.use('/carrer',CarrerRoutes)
 
     const server = http.createServer(app)
     initSocket(server)
