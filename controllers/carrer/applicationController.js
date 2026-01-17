@@ -1,5 +1,6 @@
 import sequelize from "../../config/db.js";
 import Application from "../../model/carrer/Application.js";
+import ApplicationStatusHistory from '../../model/carrer/ApplicationStatusHistory.js'
 import Job from "../../model/carrer/Job.js";
 import User from "../../model/User.js";
 const VALID_STATUSES = [
@@ -202,4 +203,44 @@ export const getAllApplications = async (req, res) => {
   });
 
   res.json({ success: true, applications });
+};
+
+
+export const getAdminApplicationById = async (req, res) => {
+  const application = await Application.findByPk(req.params.id, {
+    include: [
+      {
+        model: Job,
+        as: "job",
+        attributes: ["id", "title"]
+      }
+    ]
+  });
+
+  if (!application) {
+    return res.status(404).json({ message: "Application not found" });
+  }
+
+  // FIRST VIEW LOGIC
+  if (application.status === "submitted") {
+    await application.update({
+      status: "viewed",
+      last_viewed_at: new Date(),
+      viewed_by_admin: req.admin.id,
+      status_updated_at: new Date()
+    });
+
+    await ApplicationStatusHistory.create({
+      application_id: application.id,
+      from_status: "submitted",
+      to_status: "viewed",
+      acted_by_id: req.admin.id,
+      acted_by_role: req.admin.role || "admin"
+    });
+  }
+
+  return res.json({
+    success: true,
+    application
+  });
 };
