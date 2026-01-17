@@ -63,7 +63,7 @@ export const applyJob = async (req, res) => {
         portfolio_url,
         availability_date,
         resume_url: req.file?.location || null,
-        status: "new"
+        status: "submitted"
       },
       { transaction }
     );
