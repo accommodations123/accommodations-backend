@@ -27,7 +27,7 @@ export default async function userAuth(req, res, next) {
     }
 
     const dbUser = await User.findByPk(userId, {
-      attributes: ["id", "verified", "status"]
+      attributes: ["id", "verified"]
     });
 
     if (!dbUser) {
