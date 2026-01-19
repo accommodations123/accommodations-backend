@@ -360,3 +360,97 @@ export const getHostStats = async (req, res) => {
 };
 
 
+export const getApprovedPropertiesAdmin = async (req, res) => {
+  try {
+    const { country, state } = req.query;
+
+    const cacheKey =
+      `admin:properties:approved:${country || "all"}:${state || "all"}`;
+
+    const cached = await getCache(cacheKey);
+    if (cached) {
+      return res.json({ success: true, properties: cached });
+    }
+
+    const where = { status: "approved", is_deleted: false };
+    if (country) where.country = country;
+    if (state) where.state = state;
+
+    const properties = await Property.findAll({
+      where,
+      include: [
+        {
+          model: Host,
+          attributes: ["id", "full_name"],
+          include: [
+            {
+              model: User,
+              attributes: ["id", "email"]
+            }
+          ]
+        }
+      ],
+      order: [["updated_at", "DESC"]]
+    });
+
+    await setCache(cacheKey, properties, 300);
+
+    return res.json({
+      success: true,
+      properties
+    });
+
+  } catch (err) {
+    console.error("ADMIN APPROVED PROPERTIES ERROR:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+export const getRejectedPropertiesAdmin = async (req, res) => {
+  try {
+    const { country, state } = req.query;
+
+    const cacheKey =
+      `admin:properties:rejected:${country || "all"}:${state || "all"}`;
+
+    const cached = await getCache(cacheKey);
+    if (cached) {
+      return res.json({ success: true, properties: cached });
+    }
+
+    const where = { status: "rejected" };
+    if (country) where.country = country;
+    if (state) where.state = state;
+
+    const properties = await Property.findAll({
+      where,
+      attributes: {
+        include: ["rejection_reason"]
+      },
+      include: [
+        {
+          model: Host,
+          attributes: ["id", "full_name"],
+          include: [
+            {
+              model: User,
+              attributes: ["id", "email"]
+            }
+          ]
+        }
+      ],
+      order: [["updated_at", "DESC"]]
+    });
+
+    await setCache(cacheKey, properties, 300);
+
+    return res.json({
+      success: true,
+      properties
+    });
+
+  } catch (err) {
+    console.error("ADMIN REJECTED PROPERTIES ERROR:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
