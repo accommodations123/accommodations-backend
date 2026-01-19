@@ -21,7 +21,9 @@ import {
   deleteBuySellListing,
   getPendingBuySellListings,
   approveBuySellListing,
-  blockBuySellListing
+  blockBuySellListing,
+  getAdminApprovedBuySellListings,
+  getAdminBlockedBuySellListings
 } from "../controllers/buySellController.js";
 
 /* =========================
@@ -62,5 +64,7 @@ router.patch("/admin/buy-sell/:id/approve",adminAuth,approveBuySellListing);
 
 // Block listing
 router.patch("/admin/buy-sell/:id/block",adminAuth,blockBuySellListing);
+router.get("/admin/buy-sell/approved", adminAuth, getAdminApprovedBuySellListings);
+router.get("/admin/buy-sell/blocked", adminAuth, getAdminBlockedBuySellListings);
 
 export default router;

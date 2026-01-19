@@ -12,7 +12,10 @@ import {
   approveCommunity,
   rejectCommunity,
   suspendCommunity,
-  activateCommunity
+  activateCommunity,
+  getApprovedCommunities,
+  getRejectedCommunities,
+  getSuspendedCommunities
 } from "../../controllers/community/communityController.js";
 import adminAuth from "../../middleware/adminAuth.js";
 import { uploadCommunityMedia } from "../../middleware/uploads/community.upload.js";
@@ -35,4 +38,8 @@ router.put('/admin/communities/:id/approve',adminAuth,approveCommunity)
 router.put('/admin/communities/:id/reject',adminAuth,rejectCommunity)
 router.put('/admin/communities/:id/suspend',adminAuth,suspendCommunity)
 router.post('/admin/communities/:id/activate',adminAuth,activateCommunity)
+router.get("/admin/communities/approved", adminAuth, getApprovedCommunities);
+router.get("/admin/communities/rejected", adminAuth, getRejectedCommunities);
+router.get("/admin/communities/suspended", adminAuth, getSuspendedCommunities);
+
 export default router;

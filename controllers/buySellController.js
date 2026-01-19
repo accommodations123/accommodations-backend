@@ -416,3 +416,60 @@ export const blockBuySellListing = async (req, res) => {
         });
     }
 };
+
+export const getAdminApprovedBuySellListings = async (req, res) => {
+  try {
+    const { country, state } = req.query;
+
+    const where = { status: "active" };
+    if (country) where.country = country;
+    if (state) where.state = state;
+
+    const cacheKey = `admin:buy_sell:approved:${country || "all"}:${state || "all"}`;
+    const cached = await getCache(cacheKey);
+    if (cached) {
+      return res.json({ success: true, listings: cached });
+    }
+
+    const listings = await BuySellListing.findAll({
+      where,
+      include: [{ model: User, attributes: ["id", "email"] }],
+      order: [["updated_at", "DESC"]]
+    });
+
+    await setCache(cacheKey, listings, 300);
+
+    return res.json({ success: true, listings });
+  } catch (err) {
+    return res.status(500).json({ message: "Failed to fetch approved listings" });
+  }
+};
+
+
+export const getAdminBlockedBuySellListings = async (req, res) => {
+  try {
+    const { country, state } = req.query;
+
+    const where = { status: "blocked" };
+    if (country) where.country = country;
+    if (state) where.state = state;
+
+    const cacheKey = `admin:buy_sell:blocked:${country || "all"}:${state || "all"}`;
+    const cached = await getCache(cacheKey);
+    if (cached) {
+      return res.json({ success: true, listings: cached });
+    }
+
+    const listings = await BuySellListing.findAll({
+      where,
+      include: [{ model: User, attributes: ["id", "email"] }],
+      order: [["updated_at", "DESC"]]
+    });
+
+    await setCache(cacheKey, listings, 300);
+
+    return res.json({ success: true, listings });
+  } catch (err) {
+    return res.status(500).json({ message: "Failed to fetch blocked listings" });
+  }
+};

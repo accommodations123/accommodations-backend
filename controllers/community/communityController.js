@@ -374,3 +374,31 @@ export const activateCommunity = async (req, res) => {
     message: "Community activated"
   });
 };
+
+
+export const getApprovedCommunities = async (req, res) => {
+  const communities = await Community.findAll({
+    where: { status: "active" },
+    order: [["updated_at", "DESC"]]
+  });
+
+  res.json({ success: true, communities });
+};
+
+export const getRejectedCommunities = async (req, res) => {
+  const communities = await Community.findAll({
+    where: { status: "deleted" },
+    order: [["updated_at", "DESC"]]
+  });
+
+  res.json({ success: true, communities });
+};
+
+export const getSuspendedCommunities = async (req, res) => {
+  const communities = await Community.findAll({
+    where: { status: "suspended" },
+    order: [["updated_at", "DESC"]]
+  });
+
+  res.json({ success: true, communities });
+};
