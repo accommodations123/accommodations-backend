@@ -4,6 +4,8 @@ import {
   approveProperty,
   rejectProperty,
   deleteProperty,
+  getApprovedPropertiesAdmin,
+  getRejectedPropertiesAdmin,
   getPropertyStatusStats,  // add this
   getPropertyStats,
   getHostStats
@@ -17,6 +19,8 @@ router.get("/pending", adminAuth, getPendingProperties);
 router.put("/approve/:id", adminAuth, approveProperty);
 router.put("/reject/:id", adminAuth, rejectProperty);   
 router.delete("/delete/:id", adminAuth, deleteProperty);
+router.get("/admin/properties/approved", adminAuth, getApprovedPropertiesAdmin);
+router.get("/admin/properties/rejected", adminAuth, getRejectedPropertiesAdmin);
 
 // admin analytics
 router.get("/stats/by-status", adminAuth, getPropertyStatusStats);

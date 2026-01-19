@@ -7,8 +7,9 @@ import {
   updateHost,
   getPendingHosts,
   approveHost,
-  rejectHost
- 
+  rejectHost,
+ getApprovedHosts,
+ getRejectedHosts
 } from "../controllers/HostController.js";
 import { upload } from "../middleware/upload.js"; 
 import {multerErrorHandler} from '../middleware/uploads/multerErrorHandler.js'
@@ -24,9 +25,6 @@ router.get("/get", userauth, getMyHost);
 router.get("/admin/hosts/pending",adminAuth,getPendingHosts)
 router.put("/admin/hosts/approve/:id",adminAuth,approveHost)
 router.put("/admin/hosts/reject/:id",adminAuth,rejectHost)
-
-
-
-
-
+router.get("/admin/hosts/approved", adminAuth, getApprovedHosts);
+router.get("/admin/hosts/rejected", adminAuth, getRejectedHosts);
 export default router;

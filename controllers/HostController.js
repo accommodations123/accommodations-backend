@@ -415,3 +415,76 @@ export const rejectHost = async (req, res) => {
     return res.status(500).json({ message: "Server error" });
   }
 };
+
+export const getApprovedHosts = async (req, res) => {
+  try {
+    const { country, state } = req.query;
+
+    const cacheKey = `admin:hosts:approved:${country || "all"}:${state || "all"}`;
+    const cached = await getCache(cacheKey);
+    if (cached) {
+      return res.json({ success: true, hosts: cached });
+    }
+
+    const where = { status: "approved" };
+    if (country) where.country = country;
+    if (state) where.state = state;
+
+    const hosts = await Host.findAll({
+      where,
+      include: [
+        {
+          model: User,
+          attributes: ["id", "email", "profile_image"]
+        }
+      ],
+      order: [["updated_at", "DESC"]]
+    });
+
+    await setCache(cacheKey, hosts, 300);
+
+    return res.json({ success: true, hosts });
+
+  } catch (err) {
+    console.error("GET APPROVED HOSTS ERROR:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+export const getRejectedHosts = async (req, res) => {
+  try {
+    const { country, state } = req.query;
+
+    const cacheKey = `admin:hosts:rejected:${country || "all"}:${state || "all"}`;
+    const cached = await getCache(cacheKey);
+    if (cached) {
+      return res.json({ success: true, hosts: cached });
+    }
+
+    const where = { status: "rejected" };
+    if (country) where.country = country;
+    if (state) where.state = state;
+
+    const hosts = await Host.findAll({
+      where,
+      attributes: {
+        include: ["rejection_reason"]
+      },
+      include: [
+        {
+          model: User,
+          attributes: ["id", "email", "profile_image"]
+        }
+      ],
+      order: [["updated_at", "DESC"]]
+    });
+
+    await setCache(cacheKey, hosts, 300);
+
+    return res.json({ success: true, hosts });
+
+  } catch (err) {
+    console.error("GET REJECTED HOSTS ERROR:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
