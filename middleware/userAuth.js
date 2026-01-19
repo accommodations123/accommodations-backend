@@ -5,6 +5,7 @@ import { getCache, setCache } from "../services/cacheService.js";
 /* ============================================================
    USER AUTH MIDDLEWARE (COOKIE ONLY)
 ============================================================ */
+
 export default async function userAuth(req, res, next) {
   try {
     const token = req.cookies?.access_token;
@@ -14,20 +15,29 @@ export default async function userAuth(req, res, next) {
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
+    // 🔐 role comes from JWT, NOT DB
     if (decoded.role !== "user") {
       return res.status(403).json({ message: "Access denied" });
     }
 
     const userId = Number(decoded.id);
 
+    // 🚀 Redis first
     const cachedUser = await getCache(`user:${userId}`);
     if (cachedUser) {
       req.user = cachedUser;
       return next();
     }
 
+    // 🔥 DB fetch (ONLY EXISTING COLUMNS)
     const dbUser = await User.findByPk(userId, {
-      attributes: ["id", "verified"]
+      attributes: [
+        "id",
+        "email",
+        "name",
+        "profile_image",
+        "verified"
+      ]
     });
 
     if (!dbUser) {
@@ -38,18 +48,20 @@ export default async function userAuth(req, res, next) {
       return res.status(401).json({ message: "Verify OTP first" });
     }
 
-    if (dbUser.status === "blocked") {
-      return res.status(403).json({ message: "Account blocked" });
-    }
-
-    const safeUser = {
-      id: userId,
-      role: "user"
+    // ✅ Construct runtime user object
+    const userPayload = {
+      id: dbUser.id,
+      email: dbUser.email,
+      name: dbUser.name,
+      profile_image: dbUser.profile_image,
+      verified: dbUser.verified,
+      role: "user" // 🔑 REQUIRED BY FRONTEND
     };
 
-    await setCache(`user:${userId}`, safeUser, 600);
-    req.user = safeUser;
+    // 🧠 Cache FULL identity
+    await setCache(`user:${userId}`, userPayload, 600);
 
+    req.user = userPayload;
     next();
   } catch (err) {
     if (err.name === "TokenExpiredError") {
@@ -59,4 +71,6 @@ export default async function userAuth(req, res, next) {
     return res.status(401).json({ message: "Invalid session" });
   }
 }
+
+
 

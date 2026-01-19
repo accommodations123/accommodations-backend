@@ -23,4 +23,5 @@ router.get("/stats/by-status", adminAuth, getPropertyStatusStats);
 router.get("/stats/by-country", adminAuth, getPropertyStats);  // add this
 router.get("/stats/by-hosts", adminAuth, getHostStats);
 
+
 export default router;

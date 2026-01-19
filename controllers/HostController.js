@@ -3,7 +3,7 @@ import User from "../model/User.js";
 import { getCache, setCache, deleteCacheByPrefix } from "../services/cacheService.js";
 import axios from "axios";
 import geoip from "geoip-lite";
-
+import AnalyticsEvent from "../model/DashboardAnalytics/AnalyticsEvent.js";
 
 // Save host details
 export const saveHost = async (req, res) => {
@@ -106,6 +106,17 @@ export const saveHost = async (req, res) => {
       instagram: req.body.instagram,
       facebook: req.body.facebook,
     });
+    AnalyticsEvent.create({
+      event_type: "HOST_CREATED",
+      user_id: userId,
+      host_id: data.id,
+      country: data.country,
+      state: data.state,
+      created_at: new Date()
+    }).catch(err => {
+      console.error("ANALYTICS HOST_CREATED FAILED:", err);
+    });
+
 
     // Invalidate caches
     await deleteCacheByPrefix(`host:${userId}`);
@@ -185,6 +196,20 @@ export const updateHost = async (req, res) => {
         profile_image: req.file.location
       });
     }
+    AnalyticsEvent.create({
+      event_type: "HOST_UPDATED",
+      user_id: userId,
+      host_id: host.id,
+      country: host.country,
+      state: host.state,
+      metadata: {
+        fields_updated: Object.keys(req.body)
+      },
+      created_at: new Date()
+    }).catch(err => {
+      console.error("ANALYTICS HOST_UPDATED FAILED:", err);
+    });
+
 
     /* ===============================
        CACHE INVALIDATION
@@ -328,6 +353,17 @@ export const approveHost = async (req, res) => {
     host.status = "approved";
     host.rejection_reason = "";
     await host.save();
+    AnalyticsEvent.create({
+      event_type: "HOST_APPROVED",
+      user_id: req.admin?.id || null,   // approving admin
+      host_id: host.id,
+      country: host.country,
+      state: host.state,
+      created_at: new Date()
+    }).catch(err => {
+      console.error("ANALYTICS HOST_APPROVED FAILED:", err);
+    });
+
 
     // Clear caches
     await deleteCacheByPrefix(`host:${host.user_id}`);
@@ -351,6 +387,20 @@ export const rejectHost = async (req, res) => {
     host.status = "rejected";
     host.rejection_reason = req.body.reason || "";
     await host.save();
+    AnalyticsEvent.create({
+      event_type: "HOST_REJECTED",
+      user_id: req.admin?.id || null,
+      host_id: host.id,
+      country: host.country,
+      state: host.state,
+      metadata: {
+        reason: host.rejection_reason
+      },
+      created_at: new Date()
+    }).catch(err => {
+      console.error("ANALYTICS HOST_REJECTED FAILED:", err);
+    });
+
 
     // Clear caches
     await deleteCacheByPrefix(`host:${host.user_id}`);

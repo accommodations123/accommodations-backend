@@ -3,7 +3,7 @@ import Property from "../model/Property.js";
 import User from "../model/User.js";
 import Host from "../model/Host.js";
 import { getCache, setCache, deleteCache, deleteCacheByPrefix } from "../services/cacheService.js";
-
+import AnalyticsEvent from "../model/DashboardAnalytics/AnalyticsEvent.js";
 // CREATE DRAFT LISTING
 export const createDraft = async (req, res) => {
   try {
@@ -38,6 +38,17 @@ export const createDraft = async (req, res) => {
       privacy_type: privacyType,
       status: "draft"
     });
+    AnalyticsEvent.create({
+      event_type: "PROPERTY_DRAFT_CREATED",
+      user_id: userId,
+      host_id: host.id,
+      property_id: property.id,
+      country: req.headers["x-country"] || null
+    }).catch(err => {
+      console.error("ANALYTICS EVENT FAILED:", err);
+    });
+
+
 
     await deleteCacheByPrefix(`user_listings:${userId}`);
     await deleteCacheByPrefix(`host_listings:${host.id}`);
@@ -266,40 +277,6 @@ export const saveRules = async (req, res) => {
 };
 
 
-// LEGAL DOCS
-// export const saveLegalDocs = async (req, res) => {
-//   try {
-//     const property = req.property;
-
-//     if (!req.files || req.files.length === 0) {
-//       return res.status(400).json({ message: "No documents uploaded" });
-//     }
-
-//     const newUrls = req.files.map(file => file.location);
-//     // const property = await Property.findByPk(id);
-
-//     if (!property) {
-//       return res.status(404).json({ message: "Not found" });
-//     }
-
-//     const oldDocs = property.legal_docs || [];
-//     property.legal_docs = [...oldDocs, ...newUrls];
-
-//     await property.save();
-
-//     await deleteCache(`property:${property.id}`);
-//     await deleteCacheByPrefix(`host_listings:${property.host_id}`);
-//     // await deleteCacheByPrefix("approved_listings:");
-//     // await deleteCacheByPrefix("all_properties:");
-
-//     return res.json({ success: true, property });
-
-//   } catch (err) {
-//     return res.status(500).json({ message: "Server error" });
-//   }
-// };
-
-
 // PRICING
 export const savePricing = async (req, res) => {
   try {
@@ -355,6 +332,17 @@ export const submitProperty = async (req, res) => {
 
     property.status = "pending";
     await property.save();
+    AnalyticsEvent.create({
+      event_type: "PROPERTY_SUBMITTED",
+      user_id: property.user_id,
+      host_id: property.host_id,
+      property_id: property.id,
+      country: req.headers["x-country"] || property.country || null,
+      created_at: new Date()
+    }).catch(err => {
+      console.error("ANALYTICS EVENT FAILED:", err);
+    });
+
 
     await deleteCache(`property:${property.id}`);
     await deleteCacheByPrefix(`host_listings:${property.host_id}`);
@@ -656,6 +644,15 @@ export const getPropertyById = async (req, res) => {
 
     const cached = await getCache(`property:${id}`);
     if (cached) {
+       // 🔍 analytics must still fire
+      AnalyticsEvent.create({
+        event_type: "PROPERTY_VIEWED",
+        user_id: req.user?.id || null,
+        property_id: id,
+        country: req.headers["x-country"] || null,
+        state: req.headers["x-state"] || null,
+        created_at: new Date()
+      }).catch(() => {});
       return res.json({ success: true, property: cached });
     }
 
@@ -690,6 +687,15 @@ export const getPropertyById = async (req, res) => {
     if (!property) {
       return res.status(404).json({ success: false, message: "Property not found" });
     }
+   AnalyticsEvent.create({
+      event_type: "PROPERTY_VIEWED",
+      user_id: req.user?.id || null,
+      property_id: id,
+      country: req.headers["x-country"] || property.country || null,
+      state: req.headers["x-state"] || property.state || null,
+      created_at: new Date()
+    }).catch(() => {});
+
 
     await setCache(`property:${id}`, property, 30);
 

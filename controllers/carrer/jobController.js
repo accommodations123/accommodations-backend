@@ -47,6 +47,34 @@ export const createJob = async (req, res) => {
   }
 };
 
+
+
+export const getMyJobs = async (req, res) => {
+  const jobs = await Job.findAll({
+    where: {
+      created_by: req.admin.id   // 👈 THIS IS THE KEY
+    },
+    order: [["created_at", "DESC"]],
+    attributes: [
+      "id",
+      "title",
+      "company",
+      "location",
+      "employment_type",
+      "work_style",
+      "status",
+      "applications_count",
+      "created_at"
+    ]
+  });
+
+  res.json({
+    success: true,
+    jobs
+  });
+};
+
+
 export const getJobs = async (req, res) => {
   try {
     const where = { status: "active" };

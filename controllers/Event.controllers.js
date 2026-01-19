@@ -6,7 +6,7 @@ import EventParticipant from "../model/EventParticipant.js";
 import { getIO } from "../services/socket.js";
 import { sendEventApprovedEmail } from '../services/emailService.js'
 import { getCache, setCache, deleteCache, deleteCacheByPrefix } from "../services/cacheService.js";
-
+import AnalyticsEvent from "../model/DashboardAnalytics/AnalyticsEvent.js";
 // ======================================================
 // 1. CREATE EVENT DRAFT
 // ======================================================
@@ -39,6 +39,14 @@ export const createEventDraft = async (req, res) => {
       start_date,
       start_time,
       status: "draft"
+    });
+    await AnalyticsEvent.create({
+      event_type: "EVENT_DRAFT_CREATED",
+      user_id: userId,
+      host_id: host.id,
+      event_id: event.id,
+      country: host.country,
+      state: host.state
     });
 
     // Invalidate pending items cache
@@ -73,6 +81,18 @@ export const updateBasicInfo = async (req, res) => {
       description: req.body.description,
       type: req.body.type
     });
+    await AnalyticsEvent.create({
+      event_type: "EVENT_BASIC_INFO_UPDATED",
+      user_id: req.user.id,
+      host_id: event.host_id,
+      event_id: event.id,
+      country: event.country,
+      state: event.state,
+      metadata: {
+        step: "basic_info" // change per controller
+      }
+    });
+
 
     // Invalidate caches
     await deleteCache(`event:${event.id}`);
@@ -103,6 +123,15 @@ export const updateLocation = async (req, res) => {
       street_address: req.body.street_address,
       landmark: req.body.landmark
     });
+    await AnalyticsEvent.create({
+      event_type: "EVENT_LOCATION_UPDATED",
+      user_id: req.user.id,
+      host_id: event.host_id,
+      event_id: event.id,
+      country: event.country,
+      state: event.state
+    });
+
 
     // Clear caches
     await deleteCache(`event:${event.id}`);
@@ -127,6 +156,15 @@ export const updateSchedule = async (req, res) => {
     await event.update({
       schedule: req.body.schedule || []
     });
+    await AnalyticsEvent.create({
+      event_type: "EVENT_SCHEDULE_UPDATED",
+      user_id: req.user.id,
+      host_id: event.host_id,
+      event_id: event.id,
+      country: event.country,
+      state: event.state
+    });
+
 
     await deleteCache(`event:${event.id}`);
 
@@ -198,6 +236,15 @@ export const updateVenue = async (req, res) => {
       updateData.longitude = null;
       updateData.google_maps_url = null;
     }
+    await AnalyticsEvent.create({
+      event_type: "EVENT_VENUE_UPDATED",
+      user_id: req.user.id,
+      host_id: event.host_id,
+      event_id: event.id,
+      country: event.country,
+      state: event.state
+    });
+
 
     await event.update(updateData);
 
@@ -239,6 +286,15 @@ export const updateMedia = async (req, res) => {
     }
 
     await event.save();
+    await AnalyticsEvent.create({
+      event_type: "EVENT_MEDIA_UPDATED",
+      user_id: req.user.id,
+      host_id: event.host_id,
+      event_id: event.id,
+      country: event.country,
+      state: event.state
+    });
+
 
     await deleteCache(`event:${event.id}`);
 
@@ -263,6 +319,15 @@ export const updatePricing = async (req, res) => {
     await event.update({
       price: req.body.price
     });
+    await AnalyticsEvent.create({
+      event_type: "EVENT_PRICING_UPDATED",
+      user_id: req.user.id,
+      host_id: event.host_id,
+      event_id: event.id,
+      country: event.country,
+      state: event.state
+    });
+
 
     await deleteCache(`event:${event.id}`);
     await deleteCacheByPrefix("approved_events:");
@@ -286,6 +351,15 @@ export const submitEvent = async (req, res) => {
 
     event.status = "pending";
     await event.save();
+    await AnalyticsEvent.create({
+      event_type: "EVENT_SUBMITTED",
+      user_id: req.user.id,
+      host_id: event.host_id,
+      event_id: event.id,
+      country: event.country,
+      state: event.state
+    });
+
 
     await deleteCacheByPrefix("pending_events:");
 
@@ -323,14 +397,14 @@ export const getPendingItems = async (req, res) => {
       include: [{
         model: Host,
         attributes: ["id", "full_name", "status"],
-        include: [{ model: User, attributes: ["id", "email","profile_image"] }]
+        include: [{ model: User, attributes: ["id", "email", "profile_image"] }]
       }]
     });
 
     const pendingHosts = await Host.findAll({
       where: hostWhere,
       order: [["created_at", "DESC"]],
-      include: [{ model: User, attributes: ["id", "email","profile_image"] }]
+      include: [{ model: User, attributes: ["id", "email", "profile_image"] }]
     });
 
     const result = { events: pendingEvents, hosts: pendingHosts };
@@ -430,6 +504,17 @@ export const approveEvent = async (req, res) => {
     event.status = "approved";
     event.rejection_reason = "";
     await event.save();
+    await AnalyticsEvent.create({
+      event_type: "EVENT_APPROVED",
+      user_id: req.admin.id,
+      host_id: event.host_id,
+      event_id: event.id,
+      country: event.country,
+      state: event.state,
+      metadata: { actor: "admin" }
+    });
+
+
 
     await deleteCacheByPrefix(`host_events:${event.host_id}`);
     await deleteCacheByPrefix("pending_events");
@@ -477,6 +562,16 @@ export const rejectEvent = async (req, res) => {
     event.status = "rejected";
     event.rejection_reason = req.body.reason || "";
     await event.save();
+    await AnalyticsEvent.create({
+      event_type: "EVENT_REJECTED",
+      user_id: req.admin?.id || null,
+      host_id: event.host_id,
+      event_id: event.id,
+      country: event.country,
+      state: event.state,
+      metadata: { reason: event.rejection_reason,actor:"admin" }
+    });
+
 
     await deleteCacheByPrefix(`host_events:${event.host_id}`);
     await deleteCacheByPrefix("pending_events:");
@@ -627,6 +722,14 @@ export const getEventById = async (req, res) => {
 
     const plainEvent = event.toJSON();
     await setCache(cacheKey, plainEvent, 300);
+    await AnalyticsEvent.create({
+      event_type: "EVENT_VIEWED",
+      user_id: req.user?.id || null,
+      event_id: event.id,
+      country: req.headers["x-country"] || event.country,
+      state: req.headers["x-state"] || event.state
+    });
+
 
     return res.json({ success: true, event: plainEvent });
 
@@ -667,6 +770,15 @@ export const joinEvent = async (req, res) => {
       event_id: eventId,
       user_id: userId
     });
+    await AnalyticsEvent.create({
+      event_type: "EVENT_JOINED",
+      user_id: userId,
+      event_id: event.id,
+      host_id: event.host_id,
+      country: event.country,
+      state: event.state
+    });
+
 
     // Increment count
     await event.increment("attendees_count");
@@ -735,6 +847,15 @@ export const leaveEvent = async (req, res) => {
     if (!event) {
       return res.status(404).json({ message: "Event not found" });
     }
+    await AnalyticsEvent.create({
+      event_type: "EVENT_LEFT",
+      user_id: userId,
+      host_id: event.host_id,
+      event_id: event.id,
+      country: event.country,
+      state: event.state
+    });
+
 
     // Decrement count
     await event.decrement("attendees_count");
@@ -806,6 +927,15 @@ export const softDeleteEvent = async (req, res) => {
     }
 
     await event.update({ is_deleted: true });
+    await AnalyticsEvent.create({
+      event_type: "EVENT_DELETED",
+      user_id: req.user.id,
+      host_id: event.host_id,
+      event_id: event.id,
+      country: event.country,
+      state: event.state
+    });
+
 
     await deleteCache(`event:${event.id}`);
     await deleteCacheByPrefix("approved_events:");

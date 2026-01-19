@@ -26,7 +26,7 @@ export const getPendingProperties = async (req, res) => {
       include: [
         {
           model: Host,
-          attributes: ["id", "user_id", "full_name","whatsapp","facebook","instagram"],
+          attributes: ["id", "user_id", "full_name", "whatsapp", "facebook", "instagram"],
           include: [
             {
               model: User,
@@ -95,6 +95,21 @@ export const approveProperty = async (req, res) => {
       listing_expires_at: expiresAt,
       is_expired: false
     });
+    AnalyticsEvent.create({
+      event_type: "PROPERTY_APPROVED",
+      user_id: req.admin?.id || null,   // approving admin
+      host_id: property.host_id,
+      property_id: property.id,
+      country: property.country || null,
+      metadata: {
+        expires_at: expiresAt
+      },
+      created_at: new Date()
+    }).catch(err => {
+      console.error("ANALYTICS EVENT FAILED:", err);
+    });
+
+
 
     // ✅ Cache cleanup
     await deleteCacheByPrefix("pending_properties");
@@ -147,6 +162,19 @@ export const rejectProperty = async (req, res) => {
     property.status = "rejected";
     property.rejection_reason = req.body.reason || "Not specified";
     await property.save();
+    AnalyticsEvent.create({
+      event_type: "PROPERTY_REJECTED",
+      user_id: req.admin?.id || null,
+      property_id: property.id,
+      country: property.country || null,
+      metadata: {
+        reason: property.rejection_reason
+      },
+      created_at: new Date()
+    }).catch(err => {
+      console.error("ANALYTICS EVENT FAILED:", err);
+    });
+
 
     // Invalidate caches
     await deleteCacheByPrefix("pending_properties");
@@ -330,4 +358,5 @@ export const getHostStats = async (req, res) => {
     return res.status(500).json({ message: "Server error" });
   }
 };
+
 

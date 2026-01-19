@@ -4,7 +4,7 @@ import userAuth from "../../middleware/userAuth.js";
 import adminAuth from "../../middleware/adminAuth.js";
 import uploadResume from "../../middleware/uploads/uploadResume.js";
 
-import {getJobs,getJobById,createJob} from "../../controllers/carrer/jobController.js";
+import {createJob,getMyJobs,getJobs,getJobById,} from "../../controllers/carrer/jobController.js";
 
 import {applyJob,updateApplicationStatus,getMyApplications,updateJobStatus,getAllApplications,getAdminApplicationById} from "../../controllers/carrer/applicationController.js";
 
@@ -30,6 +30,7 @@ router.get("/applications/me",userAuth,getMyApplications);
 ===================================================== */
 
 router.post("/admin/jobs",adminAuth,createJob);
+router.get("/admin/jobs", adminAuth, getMyJobs);
 router.patch("/admin/jobs/:id/status",adminAuth,updateJobStatus);
 router.patch("/admin/applications/:id/status",adminAuth,updateApplicationStatus);
 router.get("/admin/applications",adminAuth,getAllApplications);
