@@ -415,7 +415,6 @@ export const publicBrowseTrips = async (req, res) => {
 
     const cacheKey = `travel:public:browse:page:${page}:limit:${limit}`;
 
-    // 1️⃣ Cache read
     const cached = await getCache(cacheKey);
     if (cached) {
       return res.json({
@@ -426,16 +425,14 @@ export const publicBrowseTrips = async (req, res) => {
       });
     }
 
-    const today = new Date().toISOString().slice(0, 10);
-    const maxDate = new Date(Date.now() + 30 * 86400000)
-      .toISOString()
-      .slice(0, 10);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayStr = today.toISOString().slice(0, 10);
 
-    // 2️⃣ DB query
     const trips = await TravelTrip.findAll({
       where: {
         status: "active",
-        travel_date: { [Op.between]: [today, maxDate] }
+        travel_date: { [Op.gte]: todayStr }
       },
       attributes: [
         "id",
@@ -463,7 +460,6 @@ export const publicBrowseTrips = async (req, res) => {
       ]
     });
 
-    // 3️⃣ Map response
     const results = trips.map(t => {
       const trip = t.toJSON();
       return {
@@ -482,7 +478,6 @@ export const publicBrowseTrips = async (req, res) => {
       };
     });
 
-    // 4️⃣ Cache write
     await setCache(cacheKey, results, 120);
 
     return res.json({
@@ -497,6 +492,7 @@ export const publicBrowseTrips = async (req, res) => {
     return res.status(500).json({ message: "Server error" });
   }
 };
+
 
 
 
