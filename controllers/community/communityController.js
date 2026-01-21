@@ -105,28 +105,77 @@ export const updateCommunityProfile = async (req, res) => {
 
 
 /* GET COMMUNITY DETAILS */
+/* =========================================
+   GET COMMUNITY DETAILS (PRODUCTION SAFE)
+   ========================================= */
 export const getCommunityById = async (req, res) => {
-  const cacheKey = `community:id:${req.params.id}`;
+  const communityId = Number(req.params.id);
+
+  if (!Number.isInteger(communityId)) {
+    return res.status(400).json({ message: "Invalid community id" });
+  }
+
+  const cacheKey = `community:id:${communityId}`;
 
   try {
-    const cached = await getCache(cacheKey);
-    if (cached) {
-      return res.json({ success: true, community: cached });
-    }
-
-    const community = await Community.findByPk(req.params.id);
+    /* =========================
+       1️⃣ FETCH COMMUNITY (CACHE SAFE)
+       ========================= */
+    let community = await getCache(cacheKey);
 
     if (!community) {
-      return res.status(404).json({ message: "Community not found" });
+      const dbCommunity = await Community.findByPk(communityId);
+
+      if (!dbCommunity) {
+        return res.status(404).json({ message: "Community not found" });
+      }
+
+      community = dbCommunity.toJSON();
+
+      // Cache ONLY public data
+      await setCache(cacheKey, community, 300);
     }
 
-    await setCache(cacheKey, community, 300);
+    /* =========================
+       2️⃣ USER-SPECIFIC MEMBERSHIP (NO CACHE)
+       ========================= */
+    let isMember = false;
+    let memberRole = null;
 
-    return res.json({ success: true, community });
-  } catch {
+    if (req.user?.id) {
+      const membership = await CommunityMember.findOne({
+        where: {
+          community_id: communityId,
+          user_id: req.user.id
+        },
+        attributes: ["role"] // minimal data
+      });
+
+      if (membership) {
+        isMember = true;
+        memberRole = membership.role;
+      }
+    }
+
+    /* =========================
+       3️⃣ MERGE RESPONSE (SAFE)
+       ========================= */
+    return res.json({
+      success: true,
+      community: {
+        ...community,
+        is_member: isMember,
+        isJoined: isMember, // frontend compatibility
+        member_role: memberRole
+      }
+    });
+
+  } catch (err) {
+    console.error("GET COMMUNITY ERROR:", err);
     return res.status(500).json({ message: "Failed to fetch community" });
   }
 };
+
 
 
 /* JOIN COMMUNITY */
