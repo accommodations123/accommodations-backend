@@ -694,86 +694,93 @@ export const getMyEvents = async (req, res) => {
 // ======================================================
 // GET SINGLE EVENT DETAILS
 // ======================================================
-
-
-/* ======================================================
-   GET COMMUNITY DETAILS (PRODUCTION SAFE)
-   - Guest safe
-   - Cache safe
-   - Membership aware
-   ====================================================== */
-export const getCommunityById = async (req, res) => {
+export const getEventById = async (req, res) => {
   try {
-    const communityId = Number(req.params.id);
+    const eventId = Number(req.params.id);
 
-    // 🔒 Hard validation (never trust params)
-    if (!Number.isInteger(communityId)) {
-      return res.status(400).json({ message: "Invalid community id" });
+    // 🔒 Hard validation
+    if (!Number.isInteger(eventId)) {
+      return res.status(400).json({ message: "Invalid event id" });
     }
 
-    const cacheKey = `community:id:${communityId}`;
+    const cacheKey = `event:${eventId}`;
+    let eventData;
 
-    let communityData;
-
-    // 1️⃣ Try cache
+    /* ======================================================
+       1️⃣ CACHE → DB FALLBACK
+       ====================================================== */
     const cached = await getCache(cacheKey);
     if (cached) {
       // 🚨 NEVER mutate cached objects
-      communityData = JSON.parse(JSON.stringify(cached));
+      eventData = JSON.parse(JSON.stringify(cached));
     } else {
-      // 2️⃣ Fetch from DB
-      const community = await Community.findOne({
+      const event = await Event.findOne({
         where: {
-          id: communityId,
-          status: "active"
-        }
+          id: eventId,
+          status: "approved",
+          is_deleted: false
+        },
+        include: [
+          {
+            model: Host,
+            attributes: ["id", "full_name", "country", "state", "city"],
+            include: [
+              {
+                model: User,
+                attributes: ["profile_image"]
+              }
+            ]
+          }
+        ]
       });
 
-      if (!community) {
-        return res.status(404).json({ message: "Community not found" });
+      if (!event) {
+        return res.status(404).json({ message: "Event not found" });
       }
 
-      communityData = community.toJSON();
+      eventData = event.toJSON();
 
-      // Cache ONLY community data (not user flags)
-      await setCache(cacheKey, communityData, 300);
+      // Cache ONLY event data (never user flags)
+      await setCache(cacheKey, eventData, 300);
+
+      // 📊 Analytics (fire-and-forget)
+      AnalyticsEvent.create({
+        event_type: "EVENT_VIEWED",
+        user_id: req.user?.id || null,
+        event_id: event.id,
+        country: req.headers["x-country"] || event.country,
+        state: req.headers["x-state"] || event.state
+      }).catch(console.error);
     }
 
     /* ======================================================
-       USER-SPECIFIC FLAGS (NEVER CACHED)
+       2️⃣ USER-SPECIFIC FLAG (NEVER CACHED)
        ====================================================== */
+    let isRegistered = false;
 
-    let isMember = false;
-    let memberRole = null;
-
-    if (req.user && req.user.id) {
-      const membership = await CommunityMember.findOne({
+    if (req.user?.id) {
+      const participant = await EventParticipant.findOne({
         where: {
-          community_id: communityId,
+          event_id: eventId,
           user_id: req.user.id
         },
-        attributes: ["role"]
+        attributes: ["id"]
       });
 
-      if (membership) {
-        isMember = true;
-        memberRole = membership.role;
-      }
+      isRegistered = !!participant;
     }
 
-    // 3️⃣ Final response
+    /* ======================================================
+       3️⃣ RESPONSE
+       ====================================================== */
     return res.json({
       success: true,
-      community: {
-        ...communityData,
-        is_member: isMember,
-        isJoined: isMember,        // frontend compatibility
-        member_role: memberRole
-      }
+      event: eventData,
+      is_registered: isRegistered
     });
 
   } catch (err) {
-    console.error("GET COMMUNITY ERROR:", err);
+    console.error("GET EVENT BY ID ERROR:", err);
     return res.status(500).json({ message: "Server error" });
   }
 };

@@ -19,7 +19,7 @@ import {
   getAdminRejectedEvents,
   getApprovedEvents,
   getMyEvents,
-  getCommunityById,
+  getEventById,
   joinEvent,
   leaveEvent,
   softDeleteEvent
@@ -88,7 +88,7 @@ router.get("/admin/events/rejected", adminAuth, getAdminRejectedEvents);
 router.get("/approved", getApprovedEvents);
 
 // Single event
-router.get("/:id", getCommunityById);
+router.get("/:id", getEventById);
 
 
 export default router;
