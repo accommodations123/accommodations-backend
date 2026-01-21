@@ -369,7 +369,7 @@ export const getReceivedMatchRequests = async (req, res) => {
 
     const cacheKey = `travel:matches:received:${host.id}`;
 
-    // 2️⃣ Try cache
+    // 2️⃣ Cache
     const cached = await getCache(cacheKey);
     if (cached) {
       return res.json({
@@ -383,7 +383,6 @@ export const getReceivedMatchRequests = async (req, res) => {
     let matches = await TravelMatch.findAll({
       where: { status: "pending" },
       include: [
-        // 🔹 Receiver trip (MY trip)
         {
           model: TravelTrip,
           as: "receiverTrip",
@@ -397,14 +396,12 @@ export const getReceivedMatchRequests = async (req, res) => {
             "travel_date"
           ]
         },
-
-        // 🔹 Requester trip (OTHER user)
         {
           model: TravelTrip,
           as: "requesterTrip",
           attributes: [
             "id",
-            "host_id", // 👈 IMPORTANT: Added this so we can check who owns it
+            "host_id", // ✅ REQUIRED FOR SELF-FILTER
             "from_country",
             "from_city",
             "to_country",
@@ -429,34 +426,30 @@ export const getReceivedMatchRequests = async (req, res) => {
       order: [["created_at", "DESC"]]
     });
 
-    // ✅ CHECK: Filter out requests where I am also the requester (Self-Match)
-    matches = matches.filter(m => m.requesterTrip.host_id !== host.id);
+    // 🚫 REMOVE SELF-REQUESTS
+    matches = matches.filter(
+      m => m.requesterTrip.host_id !== host.id
+    );
 
-    // 4️⃣ Shape response (important)
-    const requests = matches.map(match => {
-      const m = match.toJSON();
-
-      return {
-        match_id: m.id,
-        status: m.status,
-        requested_at: m.created_at,
-
-        receiver_trip: m.receiverTrip,
-
-        requester_trip: {
-          ...m.requesterTrip,
-          host: {
-            full_name: m.requesterTrip.host.full_name,
-            country: m.requesterTrip.host.country,
-            city: m.requesterTrip.host.city,
-            profile_image:
-              m.requesterTrip.host.User?.profile_image || null
-          }
+    // 4️⃣ Shape response
+    const requests = matches.map(m => ({
+      match_id: m.id,
+      status: m.status,
+      requested_at: m.created_at,
+      receiver_trip: m.receiverTrip,
+      requester_trip: {
+        ...m.requesterTrip.toJSON(),
+        host: {
+          full_name: m.requesterTrip.host.full_name,
+          country: m.requesterTrip.host.country,
+          city: m.requesterTrip.host.city,
+          profile_image:
+            m.requesterTrip.host.User?.profile_image || null
         }
-      };
-    });
+      }
+    }));
 
-    // 5️⃣ Cache result (TTL = 60s)
+    // 5️⃣ Cache
     await setCache(cacheKey, requests, 60);
 
     return res.json({
@@ -470,6 +463,7 @@ export const getReceivedMatchRequests = async (req, res) => {
     return res.status(500).json({ message: "Server error" });
   }
 };
+
 
 
 
