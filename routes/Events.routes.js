@@ -28,7 +28,7 @@ import { verifyEventOwnership } from "../middleware/verifyEventOwnership.js";
 import {multerErrorHandler} from '../middleware/uploads/multerErrorHandler.js'
 import { loadEvent } from "../middleware/loadEvent.js";
 import { uploadEventImages } from "../middleware/uploads/event.upload.js";
-
+import optionalAuth from "../middleware/joinleaveAuth.js";
 const router = express.Router();
 
 /* -----------------------------------------
@@ -88,7 +88,7 @@ router.get("/admin/events/rejected", adminAuth, getAdminRejectedEvents);
 router.get("/approved", getApprovedEvents);
 
 // Single event
-router.get("/:id", getEventById);
+router.get("/:id", optionalAuth,getEventById);
 
 
 export default router;

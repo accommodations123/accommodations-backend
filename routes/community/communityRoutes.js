@@ -20,7 +20,7 @@ import {
 import adminAuth from "../../middleware/adminAuth.js";
 import { uploadCommunityMedia } from "../../middleware/uploads/community.upload.js";
 import {multerErrorHandler} from '../../middleware/uploads/multerErrorHandler.js'
-import optionalAuth from "../../middleware/communityjoinleaveAuth.js";
+import optionalAuth from "../../middleware/joinleaveAuth.js";
 const router = express.Router();
 
 router.post("/", userAuth, createCommunity);
