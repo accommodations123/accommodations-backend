@@ -187,16 +187,16 @@ export const travelMatchAction = async (req, res) => {
     }
 
     if (trip_id === matched_trip_id) {
-      return res.status(400).json({ message: "Cannot match same trip" });
+      return res.status(400).json({ message: "Cannot match the same trip" });
     }
 
-    // 🔒 Get host
+    // 🔒 Resolve host
     const host = await Host.findOne({ where: { user_id: userId } });
     if (!host) {
       return res.status(403).json({ message: "Host not found" });
     }
 
-    // 🔒 Fetch both trips
+    // 🔒 Load both trips
     const [tripA, tripB] = await Promise.all([
       TravelTrip.findByPk(trip_id),
       TravelTrip.findByPk(matched_trip_id)
@@ -206,34 +206,37 @@ export const travelMatchAction = async (req, res) => {
       return res.status(404).json({ message: "Trip not found" });
     }
 
-      // 🔐 ACTION-BASED AUTHORIZATION
+    /* ============================
+       🔐 AUTHORIZATION RULES
+       ============================ */
+
     if (action === "request") {
-      // Existing check: Ensure the requester owns the source trip
+      // You must own the SOURCE trip
       if (tripA.host_id !== host.id) {
         return res.status(403).json({
-          message: "You can only request from your own trip"
+          message: "You can only send a request from your own trip"
         });
       }
 
-      // ✅ NEW CHECK: Prevent requesting your own target trip
+      // You CANNOT request your own target trip
       if (tripB.host_id === host.id) {
         return res.status(400).json({
-          message: "You cannot connect with your own trip"
+          message: "You cannot request a match with your own trip"
         });
       }
     }
 
     if (action === "accept" || action === "reject") {
+      // Only the receiver can respond
       if (tripB.host_id !== host.id) {
         return res.status(403).json({
           message: "You are not authorized to respond to this request"
         });
       }
     }
-// Invalidate my inbox
-await deleteCache(`travel:matches:received:${host.id}`);
 
     if (action === "cancel") {
+      // Either party can cancel an accepted match
       if (tripA.host_id !== host.id && tripB.host_id !== host.id) {
         return res.status(403).json({
           message: "You are not authorized to cancel this match"
@@ -241,15 +244,16 @@ await deleteCache(`travel:matches:received:${host.id}`);
       }
     }
 
-
-    // 🔎 Check existing match
+    /* ============================
+       🔎 FIND MATCH
+       ============================ */
     let match = await TravelMatch.findOne({
       where: { trip_id, matched_trip_id }
     });
 
-    /* ===========================
+    /* ============================
        REQUEST
-       =========================== */
+       ============================ */
     if (action === "request") {
       if (match) {
         return res.status(409).json({ message: "Match already exists" });
@@ -260,29 +264,27 @@ await deleteCache(`travel:matches:received:${host.id}`);
         matched_trip_id,
         status: "pending"
       });
- 
 
-        AnalyticsEvent.create({
-    event_type: "TRAVEL_MATCH_REQUESTED",
-    host_id: host.id
-  }).catch(console.error);
+      await deleteCache(`travel:matches:received:${tripB.host_id}`);
 
-      return res.json({
-        success: true,
-        status: match.status
-      });
+      AnalyticsEvent.create({
+        event_type: "TRAVEL_MATCH_REQUESTED",
+        host_id: host.id
+      }).catch(console.error);
+
+      return res.json({ success: true, status: "pending" });
     }
 
-    /* ===========================
-       BELOW ACTIONS REQUIRE MATCH
-       =========================== */
+    /* ============================
+       BELOW REQUIRES EXISTING MATCH
+       ============================ */
     if (!match) {
       return res.status(404).json({ message: "Match not found" });
     }
 
-    /* ===========================
+    /* ============================
        ACCEPT
-       =========================== */
+       ============================ */
     if (action === "accept") {
       if (match.status !== "pending") {
         return res.status(400).json({
@@ -293,18 +295,9 @@ await deleteCache(`travel:matches:received:${host.id}`);
       match.status = "accepted";
       match.consent_given = true;
       await match.save();
-       logAudit({
-    action: "TRAVEL_MATCH_ACCEPTED",
-    actor: { id: req.user.id, role: "user" },
-    target: { type: "travel_match", id: match.id },
-    severity: "LOW",
-    req
-  }).catch(console.error);
 
-  AnalyticsEvent.create({
-    event_type: "TRAVEL_MATCH_ACCEPTED",
-    host_id: host.id
-  }).catch(console.error);
+      await deleteCache(`travel:matches:received:${tripA.host_id}`);
+      await deleteCache(`travel:matches:received:${tripB.host_id}`);
 
       return res.json({
         success: true,
@@ -313,9 +306,9 @@ await deleteCache(`travel:matches:received:${host.id}`);
       });
     }
 
-    /* ===========================
+    /* ============================
        REJECT
-       =========================== */
+       ============================ */
     if (action === "reject") {
       if (match.status !== "pending") {
         return res.status(400).json({
@@ -326,15 +319,15 @@ await deleteCache(`travel:matches:received:${host.id}`);
       match.status = "rejected";
       await match.save();
 
-      return res.json({
-        success: true,
-        status: "rejected"
-      });
+      await deleteCache(`travel:matches:received:${tripA.host_id}`);
+      await deleteCache(`travel:matches:received:${tripB.host_id}`);
+
+      return res.json({ success: true, status: "rejected" });
     }
 
-    /* ===========================
+    /* ============================
        CANCEL
-       =========================== */
+       ============================ */
     if (action === "cancel") {
       if (match.status !== "accepted") {
         return res.status(400).json({
@@ -345,10 +338,10 @@ await deleteCache(`travel:matches:received:${host.id}`);
       match.status = "cancelled";
       await match.save();
 
-      return res.json({
-        success: true,
-        status: "cancelled"
-      });
+      await deleteCache(`travel:matches:received:${tripA.host_id}`);
+      await deleteCache(`travel:matches:received:${tripB.host_id}`);
+
+      return res.json({ success: true, status: "cancelled" });
     }
 
     return res.status(400).json({ message: "Invalid action" });
@@ -358,6 +351,7 @@ await deleteCache(`travel:matches:received:${host.id}`);
     return res.status(500).json({ message: "Server error" });
   }
 };
+
 
 
 export const getReceivedMatchRequests = async (req, res) => {
@@ -386,7 +380,7 @@ export const getReceivedMatchRequests = async (req, res) => {
     }
 
     // 3️⃣ DB query
-    const matches = await TravelMatch.findAll({
+    let matches = await TravelMatch.findAll({
       where: { status: "pending" },
       include: [
         // 🔹 Receiver trip (MY trip)
@@ -410,6 +404,7 @@ export const getReceivedMatchRequests = async (req, res) => {
           as: "requesterTrip",
           attributes: [
             "id",
+            "host_id", // 👈 IMPORTANT: Added this so we can check who owns it
             "from_country",
             "from_city",
             "to_country",
@@ -433,6 +428,9 @@ export const getReceivedMatchRequests = async (req, res) => {
       ],
       order: [["created_at", "DESC"]]
     });
+
+    // ✅ CHECK: Filter out requests where I am also the requester (Self-Match)
+    matches = matches.filter(m => m.requesterTrip.host_id !== host.id);
 
     // 4️⃣ Shape response (important)
     const requests = matches.map(match => {
