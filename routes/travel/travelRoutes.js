@@ -4,6 +4,7 @@ import {
   searchTrips,
   myTrips,
   travelMatchAction,
+  getReceivedMatchRequests,
   publicBrowseTrips,
   publicSearchTrips ,
   publicTripPreview ,
@@ -38,6 +39,7 @@ router.get("/trips/me",userAuth,myTrips);
 
 // Unified match action controller
 router.post("/matches/action",userAuth,travelMatchAction);
+router.get("/matches/received",userAuth,getReceivedMatchRequests);
 router.get("/trips",publicBrowseTrips)
 router.get("/trips/search",publicSearchTrips )
 router.get("/trips/:trip_id",publicTripPreview )

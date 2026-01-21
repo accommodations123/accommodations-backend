@@ -5,6 +5,12 @@ import User from "../../model/User.js";
 import { Op } from "sequelize";
 import { logAudit } from "../../services/auditLogger.js";
 import AnalyticsEvent from "../../model/DashboardAnalytics/AnalyticsEvent.js";
+import {
+  getCache,
+  setCache,
+  deleteCache,
+  deleteCacheByPrefix
+} from "../../services/cacheService.js";
 export const createTrip = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -64,6 +70,13 @@ export const createTrip = async (req, res) => {
       airline,
       flight_number
     });
+    // 🔥 invalidate public feed
+   // AFTER trip creation
+await Promise.all([
+  deleteCacheByPrefix("travel:public:browse:"),
+  deleteCacheByPrefix("travel:public:search:")
+]);
+
 
     return res.json({
       success: true,
@@ -176,13 +189,9 @@ export const travelMatchAction = async (req, res) => {
       return res.status(400).json({ message: "Cannot match same trip" });
     }
 
-    // 🔒 Get host
     const host = await Host.findOne({ where: { user_id: userId } });
-    if (!host) {
-      return res.status(403).json({ message: "Host not found" });
-    }
+    if (!host) return res.status(403).json({ message: "Host not found" });
 
-    // 🔒 Fetch both trips
     const [tripA, tripB] = await Promise.all([
       TravelTrip.findByPk(trip_id),
       TravelTrip.findByPk(matched_trip_id)
@@ -192,40 +201,13 @@ export const travelMatchAction = async (req, res) => {
       return res.status(404).json({ message: "Trip not found" });
     }
 
-    // 🔐 ACTION-BASED AUTHORIZATION
+    let match = await TravelMatch.findOne({ where: { trip_id, matched_trip_id } });
+
+    /* ===== REQUEST ===== */
     if (action === "request") {
       if (tripA.host_id !== host.id) {
-        return res.status(403).json({
-          message: "You can only request from your own trip"
-        });
+        return res.status(403).json({ message: "You can only request from your own trip" });
       }
-    }
-
-    if (action === "accept" || action === "reject") {
-      if (tripB.host_id !== host.id) {
-        return res.status(403).json({
-          message: "You are not authorized to respond to this request"
-        });
-      }
-    }
-
-    if (action === "cancel") {
-      if (tripA.host_id !== host.id && tripB.host_id !== host.id) {
-        return res.status(403).json({
-          message: "You are not authorized to cancel this match"
-        });
-      }
-    }
-
-    // 🔎 Check existing match
-    let match = await TravelMatch.findOne({
-      where: { trip_id, matched_trip_id }
-    });
-
-    /* ===========================
-       REQUEST
-       =========================== */
-    if (action === "request") {
       if (match) {
         return res.status(409).json({ message: "Match already exists" });
       }
@@ -235,93 +217,70 @@ export const travelMatchAction = async (req, res) => {
         matched_trip_id,
         status: "pending"
       });
-        AnalyticsEvent.create({
-    event_type: "TRAVEL_MATCH_REQUESTED",
-    host_id: host.id
-  }).catch(console.error);
 
-      return res.json({
-        success: true,
-        status: match.status
-      });
+      // 🔥 invalidate receiver inbox
+      await deleteCache(`travel:matches:received:${tripB.host_id}`);
+
+      AnalyticsEvent.create({
+        event_type: "TRAVEL_MATCH_REQUESTED",
+        host_id: host.id
+      }).catch(console.error);
+
+      return res.json({ success: true, status: "pending" });
     }
 
-    /* ===========================
-       BELOW ACTIONS REQUIRE MATCH
-       =========================== */
     if (!match) {
       return res.status(404).json({ message: "Match not found" });
     }
 
-    /* ===========================
-       ACCEPT
-       =========================== */
+    /* ===== ACCEPT ===== */
     if (action === "accept") {
       if (match.status !== "pending") {
-        return res.status(400).json({
-          message: "Only pending matches can be accepted"
-        });
+        return res.status(400).json({ message: "Only pending matches can be accepted" });
+      }
+      if (tripB.host_id !== host.id) {
+        return res.status(403).json({ message: "Not authorized" });
       }
 
       match.status = "accepted";
       match.consent_given = true;
       await match.save();
-       logAudit({
-    action: "TRAVEL_MATCH_ACCEPTED",
-    actor: { id: req.user.id, role: "user" },
-    target: { type: "travel_match", id: match.id },
-    severity: "LOW",
-    req
-  }).catch(console.error);
 
-  AnalyticsEvent.create({
-    event_type: "TRAVEL_MATCH_ACCEPTED",
-    host_id: host.id
-  }).catch(console.error);
+      // 🔥 invalidate both inboxes
+      await deleteCache(`travel:matches:received:${tripA.host_id}`);
+      await deleteCache(`travel:matches:received:${tripB.host_id}`);
 
-      return res.json({
-        success: true,
-        status: "accepted",
-        whatsapp_unlocked: true
-      });
+      return res.json({ success: true, status: "accepted", whatsapp_unlocked: true });
     }
 
-    /* ===========================
-       REJECT
-       =========================== */
+    /* ===== REJECT ===== */
     if (action === "reject") {
       if (match.status !== "pending") {
-        return res.status(400).json({
-          message: "Only pending matches can be rejected"
-        });
+        return res.status(400).json({ message: "Only pending matches can be rejected" });
       }
 
       match.status = "rejected";
       await match.save();
 
-      return res.json({
-        success: true,
-        status: "rejected"
-      });
+      await deleteCache(`travel:matches:received:${tripA.host_id}`);
+      await deleteCache(`travel:matches:received:${tripB.host_id}`);
+
+      return res.json({ success: true, status: "rejected" });
     }
 
-    /* ===========================
-       CANCEL
-       =========================== */
+    /* ===== CANCEL ===== */
     if (action === "cancel") {
       if (match.status !== "accepted") {
-        return res.status(400).json({
-          message: "Only accepted matches can be cancelled"
-        });
+        return res.status(400).json({ message: "Only accepted matches can be cancelled" });
       }
 
       match.status = "cancelled";
       await match.save();
 
-      return res.json({
-        success: true,
-        status: "cancelled"
-      });
+      await deleteCache(`travel:matches:received:${tripA.host_id}`);
+      await deleteCache(`travel:matches:received:${tripB.host_id}`);
+
+      return res.json({ success: true, status: "cancelled" });
     }
 
     return res.status(400).json({ message: "Invalid action" });
@@ -333,27 +292,150 @@ export const travelMatchAction = async (req, res) => {
 };
 
 
+export const getReceivedMatchRequests = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    // 1️⃣ Resolve host
+    const host = await Host.findOne({
+      where: { user_id: userId }
+    });
+
+    if (!host) {
+      return res.json({ success: true, requests: [] });
+    }
+
+    const cacheKey = `travel:matches:received:${host.id}`;
+
+    // 2️⃣ Try cache
+    const cached = await getCache(cacheKey);
+    if (cached) {
+      return res.json({
+        success: true,
+        source: "cache",
+        requests: cached
+      });
+    }
+
+    // 3️⃣ DB query
+    const matches = await TravelMatch.findAll({
+      where: { status: "pending" },
+      include: [
+        // 🔹 Receiver trip (MY trip)
+        {
+          model: TravelTrip,
+          as: "receiverTrip",
+          where: { host_id: host.id },
+          attributes: [
+            "id",
+            "from_country",
+            "from_city",
+            "to_country",
+            "to_city",
+            "travel_date"
+          ]
+        },
+
+        // 🔹 Requester trip (OTHER user)
+        {
+          model: TravelTrip,
+          as: "requesterTrip",
+          attributes: [
+            "id",
+            "from_country",
+            "from_city",
+            "to_country",
+            "to_city",
+            "travel_date"
+          ],
+          include: [
+            {
+              model: Host,
+              as: "host",
+              attributes: ["full_name", "country", "city"],
+              include: [
+                {
+                  model: User,
+                  attributes: ["profile_image"]
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      order: [["created_at", "DESC"]]
+    });
+
+    // 4️⃣ Shape response (important)
+    const requests = matches.map(match => {
+      const m = match.toJSON();
+
+      return {
+        match_id: m.id,
+        status: m.status,
+        requested_at: m.created_at,
+
+        receiver_trip: m.receiverTrip,
+
+        requester_trip: {
+          ...m.requesterTrip,
+          host: {
+            full_name: m.requesterTrip.host.full_name,
+            country: m.requesterTrip.host.country,
+            city: m.requesterTrip.host.city,
+            profile_image:
+              m.requesterTrip.host.User?.profile_image || null
+          }
+        }
+      };
+    });
+
+    // 5️⃣ Cache result (TTL = 60s)
+    await setCache(cacheKey, requests, 60);
+
+    return res.json({
+      success: true,
+      source: "db",
+      requests
+    });
+
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+
 
 export const publicBrowseTrips = async (req, res) => {
   try {
-    const { page = 1, limit = 10 } = req.query;
+    const page = Number(req.query.page || 1);
+    const limit = Math.min(Number(req.query.limit || 10), 10);
+    const offset = (page - 1) * limit;
 
-    const safeLimit = Math.min(Number(limit), 10);
-    const offset = (page - 1) * safeLimit;
+    const cacheKey = `travel:public:browse:page:${page}:limit:${limit}`;
 
-    const today = new Date();
-    const maxDate = new Date();
-    maxDate.setDate(today.getDate() + 30);
+    // 1️⃣ Cache read
+    const cached = await getCache(cacheKey);
+    if (cached) {
+      return res.json({
+        success: true,
+        source: "cache",
+        page,
+        results: cached
+      });
+    }
 
+    const today = new Date().toISOString().slice(0, 10);
+    const maxDate = new Date(Date.now() + 30 * 86400000)
+      .toISOString()
+      .slice(0, 10);
+
+    // 2️⃣ DB query
     const trips = await TravelTrip.findAll({
       where: {
         status: "active",
-        travel_date: {
-          [Op.between]: [
-            today.toISOString().slice(0, 10),
-            maxDate.toISOString().slice(0, 10)
-          ]
-        }
+        travel_date: { [Op.between]: [today, maxDate] }
       },
       attributes: [
         "id",
@@ -364,7 +446,7 @@ export const publicBrowseTrips = async (req, res) => {
         "travel_date"
       ],
       order: [["travel_date", "ASC"]],
-      limit: safeLimit,
+      limit,
       offset,
       include: [
         {
@@ -373,7 +455,7 @@ export const publicBrowseTrips = async (req, res) => {
           attributes: ["full_name", "country", "city"],
           include: [
             {
-              model: User,                 // ✅ implicit alias "User"
+              model: User,
               attributes: ["profile_image"]
             }
           ]
@@ -381,28 +463,32 @@ export const publicBrowseTrips = async (req, res) => {
       ]
     });
 
-    const results = trips.map(trip => {
-      const t = trip.toJSON();
-
+    // 3️⃣ Map response
+    const results = trips.map(t => {
+      const trip = t.toJSON();
       return {
-        id: t.id,
-        from_country: t.from_country,
-        from_city: t.from_city,
-        to_country: t.to_country,
-        to_city: t.to_city,
-        travel_date: t.travel_date,
+        id: trip.id,
+        from_country: trip.from_country,
+        from_city: trip.from_city,
+        to_country: trip.to_country,
+        to_city: trip.to_city,
+        travel_date: trip.travel_date,
         host: {
-          full_name: t.host.full_name,
-          country: t.host.country,
-          city: t.host.city,
-          profile_image: t.host.User?.profile_image || null
+          full_name: trip.host.full_name,
+          country: trip.host.country,
+          city: trip.host.city,
+          profile_image: trip.host.User?.profile_image || null
         }
       };
     });
 
+    // 4️⃣ Cache write
+    await setCache(cacheKey, results, 120);
+
     return res.json({
       success: true,
-      page: Number(page),
+      source: "db",
+      page,
       results
     });
 
@@ -411,6 +497,7 @@ export const publicBrowseTrips = async (req, res) => {
     return res.status(500).json({ message: "Server error" });
   }
 };
+
 
 
 
@@ -431,9 +518,23 @@ export const publicSearchTrips = async (req, res) => {
       });
     }
 
-    const safeLimit = Math.min(Number(limit), 20); // HARD CAP
+    const safeLimit = Math.min(Number(limit), 20);
     const offset = (page - 1) * safeLimit;
 
+    const cacheKey = `travel:public:search:${from_country}:${to_country}:${date}:page:${page}:limit:${safeLimit}`;
+
+    // 1️⃣ Cache read
+    const cached = await getCache(cacheKey);
+    if (cached) {
+      return res.json({
+        success: true,
+        source: "cache",
+        page: Number(page),
+        results: cached
+      });
+    }
+
+    // 2️⃣ DB query
     const trips = await TravelTrip.findAll({
       where: {
         from_country,
@@ -456,15 +557,43 @@ export const publicSearchTrips = async (req, res) => {
         {
           model: Host,
           as: "host",
-          attributes: ["full_name", "country", "city"]
+          attributes: ["full_name", "country", "city"],
+          include: [
+            {
+              model: User,
+              attributes: ["profile_image"]
+            }
+          ]
         }
       ]
     });
 
+    const results = trips.map(t => {
+      const trip = t.toJSON();
+      return {
+        id: trip.id,
+        from_country: trip.from_country,
+        from_city: trip.from_city,
+        to_country: trip.to_country,
+        to_city: trip.to_city,
+        travel_date: trip.travel_date,
+        host: {
+          full_name: trip.host.full_name,
+          country: trip.host.country,
+          city: trip.host.city,
+          profile_image: trip.host.User?.profile_image || null
+        }
+      };
+    });
+
+    // 3️⃣ Cache write
+    await setCache(cacheKey, results, 120);
+
     return res.json({
       success: true,
+      source: "db",
       page: Number(page),
-      results: trips
+      results
     });
 
   } catch (err) {
@@ -472,45 +601,46 @@ export const publicSearchTrips = async (req, res) => {
     return res.status(500).json({ message: "Server error" });
   }
 };
-  export const publicTripPreview = async (req, res) => {
-    try {
-      const { trip_id } = req.params;
 
-      const trip = await TravelTrip.findOne({
-        where: { id: trip_id, status: "active" },
-        attributes: [
-          "id",
-          "from_country",
-          "from_city",
-          "to_country",
-          "to_city",
-          "travel_date",
-          "departure_time",
-          "airline"
-        ],
-        include: [
-          {
-            model: Host,
-            as: "host",
-            attributes: ["full_name", "country", "city"]
-          }
-        ]
-      });
+export const publicTripPreview = async (req, res) => {
+  try {
+    const { trip_id } = req.params;
 
-      if (!trip) {
-        return res.status(404).json({ message: "Trip not found" });
-      }
+    const trip = await TravelTrip.findOne({
+      where: { id: trip_id, status: "active" },
+      attributes: [
+        "id",
+        "from_country",
+        "from_city",
+        "to_country",
+        "to_city",
+        "travel_date",
+        "departure_time",
+        "airline"
+      ],
+      include: [
+        {
+          model: Host,
+          as: "host",
+          attributes: ["full_name", "country", "city"]
+        }
+      ]
+    });
 
-      return res.json({
-        success: true,
-        trip
-      });
-
-    } catch (err) {
-      console.error(err);
-      return res.status(500).json({ message: "Server error" });
+    if (!trip) {
+      return res.status(404).json({ message: "Trip not found" });
     }
-  };
+
+    return res.json({
+      success: true,
+      trip
+    });
+
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
 
 
 
@@ -569,7 +699,7 @@ export const adminCancelTrip = async (req, res) => {
 
     trip.status = "cancelled";
     await trip.save();
-     logAudit({
+    logAudit({
       action: "ADMIN_CANCELLED_TRIP",
       actor: { id: req.admin.id, role: "admin" },
       target: { type: "travel_trip", id: trip.id },
@@ -659,7 +789,7 @@ export const adminBlockHost = async (req, res) => {
     host.status = "rejected";
     host.rejection_reason = "Blocked by admin";
     await host.save();
-      logAudit({
+    logAudit({
       action: "ADMIN_BLOCKED_HOST",
       actor: { id: req.admin.id, role: "admin" },
       target: { type: "host", id: host.id },

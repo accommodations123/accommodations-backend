@@ -504,7 +504,7 @@ export const approveEvent = async (req, res) => {
     event.status = "approved";
     event.rejection_reason = "";
     await event.save();
-    await AnalyticsEvent.create({
+     AnalyticsEvent.create({
       event_type: "EVENT_APPROVED",
       user_id: req.admin.id,
       host_id: event.host_id,
@@ -562,7 +562,7 @@ export const rejectEvent = async (req, res) => {
     event.status = "rejected";
     event.rejection_reason = req.body.reason || "";
     await event.save();
-    await AnalyticsEvent.create({
+     AnalyticsEvent.create({
       event_type: "EVENT_REJECTED",
       user_id: req.admin?.id || null,
       host_id: event.host_id,

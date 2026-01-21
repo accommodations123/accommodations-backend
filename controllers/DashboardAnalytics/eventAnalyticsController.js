@@ -37,14 +37,10 @@ export const getEventAnalyticsSummary = async (req, res) => {
 
 export const getEventEngagementTimeseries = async (req, res) => {
   try {
-    const { eventId, type = "EVENT_JOINED", days = 30 } = req.query;
-
-    if (!eventId) {
-      return res.status(400).json({ message: "eventId is required" });
-    }
-
+    const {type = "EVENT_JOINED", days = 30 } = req.query;
+  
     const since = new Date();
-    since.setUTCDate(since.getUTCDate() - Number(days));
+    since.setDate(since.getDate() - Number(days));
 
     const [rows] = await sequelize.query(
       `
@@ -53,18 +49,11 @@ export const getEventEngagementTimeseries = async (req, res) => {
         COUNT(*) AS total
       FROM analytics_events
       WHERE event_type = :type
-        AND event_id = :eventId
         AND created_at >= :since
       GROUP BY day
       ORDER BY day ASC
       `,
-      {
-        replacements: {
-          type,
-          eventId,
-          since
-        }
-      }
+      { replacements: { type, since } }
     );
 
     return res.json({
@@ -77,7 +66,6 @@ export const getEventEngagementTimeseries = async (req, res) => {
     return res.status(500).json({ message: "Server error" });
   }
 };
-
 
 
 export const getEventAnalyticsByLocation = async (req, res) => {
