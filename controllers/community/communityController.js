@@ -132,40 +132,50 @@ export const getCommunityById = async (req, res) => {
 /* JOIN COMMUNITY */
 
 export const joinCommunity = async (req, res) => {
+  const t = await Community.sequelize.transaction();
+
   try {
     const userId = req.user.id;
     const communityId = Number(req.params.id);
 
-    const community = await Community.findByPk(communityId);
-    if (!community || community.status !== "active") {
+    const community = await Community.findOne({
+      where: { id: communityId, status: "active" },
+      transaction: t,
+      lock: t.LOCK.UPDATE
+    });
+
+    if (!community) {
+      await t.rollback();
       return res.status(404).json({ message: "Community not found" });
     }
 
-    // Check if already a member
     const existing = await CommunityMember.findOne({
-      where: {
-        community_id: communityId,
-        user_id: userId
-      }
+      where: { community_id: communityId, user_id: userId },
+      transaction: t
     });
 
     if (existing) {
-      return res.status(400).json({
-        message: "Already a member"
-      });
+      await t.rollback();
+      return res.status(400).json({ message: "Already a member" });
     }
 
-    // Insert membership
-    await CommunityMember.create({
-      community_id: communityId,
-      user_id: userId,
-      role: "member"
-    });
+    await CommunityMember.create(
+      {
+        community_id: communityId,
+        user_id: userId,
+        role: "member"
+      },
+      { transaction: t }
+    );
 
-    // Update counter (display only)
-    await Community.increment("members_count", {
-      where: { id: communityId }
-    });
+    community.members_count += 1;
+    await community.save({ transaction: t });
+
+    await t.commit();
+
+    // 🔥 Cache invalidation (CRITICAL)
+    await deleteCache(`community:id:${communityId}`);
+    await deleteCacheByPrefix("communities:list:");
 
     return res.json({
       success: true,
@@ -173,45 +183,54 @@ export const joinCommunity = async (req, res) => {
     });
 
   } catch (err) {
+    await t.rollback();
     console.error("JOIN COMMUNITY ERROR:", err);
-    return res.status(500).json({
-      message: "Failed to join community"
-    });
+    return res.status(500).json({ message: "Failed to join community" });
   }
 };
 
 
 
+
 /* LEAVE COMMUNITY */
 export const leaveCommunity = async (req, res) => {
+  const t = await Community.sequelize.transaction();
+
   try {
     const userId = req.user.id;
     const communityId = Number(req.params.id);
 
     const member = await CommunityMember.findOne({
-      where: {
-        community_id: communityId,
-        user_id: userId
-      }
+      where: { community_id: communityId, user_id: userId },
+      transaction: t,
+      lock: t.LOCK.UPDATE
     });
 
     if (!member) {
-      return res.status(400).json({
-        message: "You are not a member"
-      });
+      await t.rollback();
+      return res.status(400).json({ message: "You are not a member" });
     }
 
     if (member.role === "owner") {
-      return res.status(400).json({
-        message: "Owner cannot leave the community"
-      });
+      await t.rollback();
+      return res.status(400).json({ message: "Owner cannot leave the community" });
     }
 
-    await member.destroy();
+    await member.destroy({ transaction: t });
 
-    await Community.decrement("members_count", {
-      where: { id: communityId }
+    const community = await Community.findByPk(communityId, {
+      transaction: t,
+      lock: t.LOCK.UPDATE
     });
+
+    community.members_count = Math.max(0, community.members_count - 1);
+    await community.save({ transaction: t });
+
+    await t.commit();
+
+    // 🔥 Cache invalidation
+    await deleteCache(`community:id:${communityId}`);
+    await deleteCacheByPrefix("communities:list:");
 
     return res.json({
       success: true,
@@ -219,12 +238,12 @@ export const leaveCommunity = async (req, res) => {
     });
 
   } catch (err) {
+    await t.rollback();
     console.error("LEAVE COMMUNITY ERROR:", err);
-    return res.status(500).json({
-      message: "Failed to leave community"
-    });
+    return res.status(500).json({ message: "Failed to leave community" });
   }
 };
+
 
 
 
