@@ -1,19 +1,22 @@
 import express from "express";
-import {
-  getBuySellOverview,
-  getBuySellDailyTrend,
-  getBuySellByCountry,
-  getBuySellApprovalRatio
-} from "../../controllers/DashboardAnalytics/buySellAnalyticsController.js";
 import adminAuth from "../../middleware/adminAuth.js";
+import {
+  analyticsOverview,
+  domainSummary,
+  analyticsTimeSeries,
+  funnelAnalytics,
+  geoAnalytics
+} from "../../controllers/DashboardAnalytics/buySellAnalyticsController.js";
 
 const router = express.Router();
 
+// 🔐 SINGLE SOURCE OF TRUTH
 router.use(adminAuth);
 
-router.get("/overview",adminAuth, getBuySellOverview);
-router.get("/trend",adminAuth, getBuySellDailyTrend);
-router.get("/country",adminAuth, getBuySellByCountry);
-router.get("/ratio",adminAuth, getBuySellApprovalRatio);
+router.get("/overview", analyticsOverview);
+router.get("/domain/:domain", domainSummary);
+router.get("/timeseries", analyticsTimeSeries);
+router.get("/funnel/:domain", funnelAnalytics);
+router.get("/geo", geoAnalytics);
 
 export default router;

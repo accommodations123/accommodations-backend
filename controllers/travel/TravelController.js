@@ -4,7 +4,7 @@ import Host from "../../model/Host.js";
 import User from "../../model/User.js";
 import { Op } from "sequelize";
 import { logAudit } from "../../services/auditLogger.js";
-import AnalyticsEvent from "../../model/DashboardAnalytics/AnalyticsEvent.js";
+import { trackEvent } from "../../services/Analytics.js";
 import {
   getCache,
   setCache,
@@ -79,21 +79,33 @@ export const createTrip = async (req, res) => {
       languages
     });
     await deleteCacheByPrefix("travel:public:browse:");
-await deleteCacheByPrefix("travel:public:search:");
+    await deleteCacheByPrefix("travel:public:search:");
 
-AnalyticsEvent.create({
-  event_type: "TRAVEL_TRIP_CREATED",
-  host_id: host.id,
-  country: from_country
-}).catch(console.error);
+    trackEvent({
+      event_type: "TRAVEL_TRIP_CREATED",
+      domain: "travel",
+      actor: { user_id: userId, role: "host" },
+      entity: { type: "travel_trip", id: trip.id },
+      location: {
+        country: from_country,
+        state: from_state,
+        city: from_city
+      },
+      metadata: {
+        to_country,
+        to_city,
+        travel_date
+      }
+    }).catch(console.error);
 
-logAudit({
-  action: "TRAVEL_TRIP_CREATED",
-  actor: { id: userId, role: "host" },
-  target: { type: "travel_trip", id: trip.id },
-  severity: "LOW",
-  req
-}).catch(console.error);
+
+    logAudit({
+      action: "TRAVEL_TRIP_CREATED",
+      actor: { id: userId, role: "host" },
+      target: { type: "travel_trip", id: trip.id },
+      severity: "LOW",
+      req
+    }).catch(console.error);
 
 
     return res.json({
@@ -229,8 +241,8 @@ export const myTrips = async (req, res) => {
         match_state: hasAccepted
           ? "connected"
           : hasPending
-          ? "pending"
-          : "none",
+            ? "pending"
+            : "none",
 
         // Optional but useful
         sent_matches: t.sentMatches,
@@ -341,10 +353,17 @@ export const travelMatchAction = async (req, res) => {
 
       await deleteCache(`travel:matches:received:${tripB.host_id}`);
 
-    AnalyticsEvent.create({
-        event_type: "TRAVEL_MATCH_REQUESTED",
-        host_id: host.id
-      }).catch(console.error);
+     trackEvent({
+  event_type: "TRAVEL_MATCH_REQUESTED",
+  domain: "travel",
+  actor: { user_id: userId, role: "host" },
+  entity: { type: "travel_match", id: match.id },
+  metadata: {
+    trip_id,
+    matched_trip_id
+  }
+}).catch(console.error);
+
 
       logAudit({
         action: "TRAVEL_MATCH_REQUESTED",
@@ -380,6 +399,13 @@ export const travelMatchAction = async (req, res) => {
 
       await deleteCache(`travel:matches:received:${tripA.host_id}`);
       await deleteCache(`travel:matches:received:${tripB.host_id}`);
+      trackEvent({
+  event_type: "TRAVEL_MATCH_ACCEPTED",
+  domain: "travel",
+  actor: { user_id: userId, role: "host" },
+  entity: { type: "travel_match", id: match.id }
+}).catch(console.error);
+
 
       return res.json({
         success: true,
@@ -403,6 +429,13 @@ export const travelMatchAction = async (req, res) => {
 
       await deleteCache(`travel:matches:received:${tripA.host_id}`);
       await deleteCache(`travel:matches:received:${tripB.host_id}`);
+      trackEvent({
+  event_type: "TRAVEL_MATCH_REJECTED",
+  domain: "travel",
+  actor: { user_id: userId, role: "host" },
+  entity: { type: "travel_match", id: match.id }
+}).catch(console.error);
+
 
       return res.json({ success: true, status: "rejected" });
     }
@@ -422,6 +455,13 @@ export const travelMatchAction = async (req, res) => {
 
       await deleteCache(`travel:matches:received:${tripA.host_id}`);
       await deleteCache(`travel:matches:received:${tripB.host_id}`);
+      trackEvent({
+  event_type: "TRAVEL_MATCH_CANCELLED",
+  domain: "travel",
+  actor: { user_id: userId, role: "host" },
+  entity: { type: "travel_match", id: match.id }
+}).catch(console.error);
+
 
       return res.json({ success: true, status: "cancelled" });
     }
@@ -699,6 +739,20 @@ export const publicSearchTrips = async (req, res) => {
         time: trip.departure_time
       };
     });
+    trackEvent({
+  event_type: "TRAVEL_TRIP_SEARCHED",
+  domain: "travel",
+  actor: req.user
+    ? { user_id: req.user.id, role: "user" }
+    : { user_id: null, role: "guest" },
+  metadata: {
+    from_country,
+    to_country,
+    date,
+    results_count: trips.length
+  }
+}).catch(console.error);
+
 
     return res.json({
       success: true,
@@ -741,6 +795,19 @@ export const publicTripPreview = async (req, res) => {
     if (!trip) {
       return res.status(404).json({ message: "Trip not found" });
     }
+    trackEvent({
+  event_type: "TRAVEL_TRIP_VIEWED",
+  domain: "travel",
+  actor: req.user
+    ? { user_id: req.user.id, role: "user" }
+    : { user_id: null, role: "guest" },
+  entity: { type: "travel_trip", id: trip.id },
+  location: {
+    country: trip.from_country,
+    city: trip.from_city
+  }
+}).catch(console.error);
+
 
     return res.json({
       success: true,
@@ -818,10 +885,13 @@ export const adminCancelTrip = async (req, res) => {
       req
     }).catch(console.error);
 
-    AnalyticsEvent.create({
-      event_type: "ADMIN_CANCELLED_TRIP",
-      user_id: req.admin.id
-    }).catch(console.error);
+ trackEvent({
+  event_type: "ADMIN_CANCELLED_TRIP",
+  domain: "travel",
+  actor: { user_id: req.admin.id, role: "admin" },
+  entity: { type: "travel_trip", id: trip.id }
+}).catch(console.error);
+
 
     return res.json({
       success: true,
@@ -908,11 +978,14 @@ export const adminBlockHost = async (req, res) => {
       req
     }).catch(console.error);
 
-    AnalyticsEvent.create({
-      event_type: "HOST_BLOCKED",
-      user_id: req.admin.id,
-      country: host.country || null
-    }).catch(console.error);
+ trackEvent({
+  event_type: "HOST_BLOCKED",
+  domain: "travel",
+  actor: { user_id: req.admin.id, role: "admin" },
+  entity: { type: "host", id: host.id },
+  location: { country: host.country }
+}).catch(console.error);
+
 
     return res.json({
       success: true,

@@ -1,155 +1,183 @@
 import AnalyticsEvent from "../../model/DashboardAnalytics/AnalyticsEvent.js";
 import { Op, fn, col, literal } from "sequelize";
 
-/* =====================================================
-   BUY / SELL – OVERVIEW COUNTS
-   ===================================================== */
-export const getBuySellOverview = async (req, res) => {
+/* ======================================================
+   1️⃣ GLOBAL OVERVIEW (ALL DOMAINS)
+====================================================== */
+export const analyticsOverview = async (req, res) => {
   try {
-    const { range = "7d" } = req.query;
-
-    const days =
-      range === "30d" ? 30 :
-      range === "90d" ? 90 :
-      7;
-
-    const fromDate = new Date();
-    fromDate.setDate(fromDate.getDate() - days);
-
-    const stats = await AnalyticsEvent.findAll({
+    const rows = await AnalyticsEvent.findAll({
       attributes: [
+        "domain",
         "event_type",
-        [fn("COUNT", col("id")), "total"]
+        [fn("COUNT", literal("*")), "count"]
       ],
-      where: {
-        event_type: {
-          [Op.in]: [
-            "BUYSELL_LISTING_APPROVED",
-            "BUYSELL_LISTING_BLOCKED"
-          ]
-        },
-        created_at: {
-          [Op.gte]: fromDate
-        }
-      },
-      group: ["event_type"]
+      group: ["domain", "event_type"],
+      raw: true
     });
 
-    return res.json({
-      success: true,
-      range,
-      stats
-    });
+    const result = {};
+
+    for (const r of rows) {
+      if (!result[r.domain]) result[r.domain] = {};
+      result[r.domain][r.event_type] = Number(r.count);
+    }
+
+    return res.json({ success: true, data: result });
 
   } catch (err) {
-    console.error("BUYSELL OVERVIEW ERROR:", err);
-    return res.status(500).json({ message: "Analytics error" });
+    console.error("analyticsOverview error:", err);
+    return res.status(500).json({ message: "Failed to load analytics" });
   }
 };
 
-/* =====================================================
-   BUY / SELL – DAILY TREND
-   ===================================================== */
-export const getBuySellDailyTrend = async (req, res) => {
+/* ======================================================
+   2️⃣ DOMAIN SUMMARY
+====================================================== */
+export const domainSummary = async (req, res) => {
+  const { domain } = req.params;
+
   try {
-    const { range = "7d" } = req.query;
+    const rows = await AnalyticsEvent.findAll({
+      where: { domain },
+      attributes: [
+        "event_type",
+        [fn("COUNT", literal("*")), "count"]
+      ],
+      group: ["event_type"],
+      raw: true
+    });
 
-    const days = range === "30d" ? 30 : 7;
+    return res.json({ success: true, domain, events: rows });
 
-    const fromDate = new Date();
-    fromDate.setDate(fromDate.getDate() - days);
+  } catch (err) {
+    console.error("domainSummary error:", err);
+    return res.status(500).json({ message: "Failed to load domain summary" });
+  }
+};
 
-    const trend = await AnalyticsEvent.findAll({
+/* ======================================================
+   3️⃣ TIME SERIES
+====================================================== */
+export const analyticsTimeSeries = async (req, res) => {
+  const { domain, from, to } = req.query;
+
+  const where = {};
+  if (domain) where.domain = domain;
+
+  if (from || to) {
+    where.created_at = {};
+    if (from) where.created_at[Op.gte] = new Date(from);
+    if (to) where.created_at[Op.lte] = new Date(to);
+  }
+
+  try {
+    const rows = await AnalyticsEvent.findAll({
+      where,
       attributes: [
         [fn("DATE", col("created_at")), "date"],
+        "domain",
         "event_type",
-        [fn("COUNT", col("id")), "count"]
+        [fn("COUNT", literal("*")), "count"]
       ],
-      where: {
-        event_type: {
-          [Op.in]: [
-            "BUYSELL_LISTING_APPROVED",
-            "BUYSELL_LISTING_BLOCKED"
-          ]
-        },
-        created_at: {
-          [Op.gte]: fromDate
-        }
-      },
-      group: [
-        literal("DATE(created_at)"),
-        "event_type"
-      ],
-      order: [[literal("DATE(created_at)"), "ASC"]]
+      group: ["date", "domain", "event_type"],
+      order: [[literal("date"), "ASC"]],
+      raw: true
     });
 
-    return res.json({
-      success: true,
-      trend
-    });
+    return res.json({ success: true, data: rows });
 
   } catch (err) {
-    console.error("BUYSELL TREND ERROR:", err);
-    return res.status(500).json({ message: "Analytics error" });
+    console.error("analyticsTimeSeries error:", err);
+    return res.status(500).json({ message: "Failed to load time series" });
   }
 };
 
-/* =====================================================
-   BUY / SELL – COUNTRY DISTRIBUTION
-   ===================================================== */
-export const getBuySellByCountry = async (req, res) => {
+/* ======================================================
+   4️⃣ FUNNEL ANALYTICS
+====================================================== */
+export const funnelAnalytics = async (req, res) => {
+  const { domain } = req.params;
+
+  const funnels = {
+    buy_sell: [
+      "BUYSELL_LISTING_CREATED",
+      "BUYSELL_LISTING_APPROVED",
+      "BUYSELL_LISTING_SOLD"
+    ],
+    travel: [
+      "TRAVEL_TRIP_CREATED",
+      "TRAVEL_MATCH_REQUESTED",
+      "TRAVEL_MATCH_ACCEPTED"
+    ],
+    community: [
+      "COMMUNITY_CREATED",
+      "COMMUNITY_JOINED",
+      "COMMUNITY_POST_CREATED"
+    ]
+  };
+
+  const steps = funnels[domain];
+  if (!steps) {
+    return res.status(400).json({ message: "Invalid domain" });
+  }
+
   try {
-    const data = await AnalyticsEvent.findAll({
-      attributes: [
-        "country",
-        [fn("COUNT", col("id")), "total"]
-      ],
+    const rows = await AnalyticsEvent.findAll({
       where: {
-        event_type: "BUYSELL_LISTING_APPROVED"
+        domain,
+        event_type: { [Op.in]: steps }
       },
-      group: ["country"],
-      order: [[literal("total"), "DESC"]]
+      attributes: [
+        "event_type",
+        [fn("COUNT", literal("*")), "count"]
+      ],
+      group: ["event_type"],
+      raw: true
     });
 
-    return res.json({
-      success: true,
-      data
-    });
+    const result = {};
+    steps.forEach(step => (result[step] = 0));
+    rows.forEach(r => (result[r.event_type] = Number(r.count)));
+
+    return res.json({ success: true, domain, funnel: result });
 
   } catch (err) {
-    console.error("BUYSELL COUNTRY ERROR:", err);
-    return res.status(500).json({ message: "Analytics error" });
+    console.error("funnelAnalytics error:", err);
+    return res.status(500).json({ message: "Failed to load funnel analytics" });
   }
 };
 
-/* =====================================================
-   BUY / SELL – APPROVAL VS BLOCK
-   ===================================================== */
-export const getBuySellApprovalRatio = async (req, res) => {
+/* ======================================================
+   5️⃣ GEO ANALYTICS
+====================================================== */
+export const geoAnalytics = async (req, res) => {
+  const { domain, level = "country" } = req.query;
+
+  const column =
+    level === "state"
+      ? "location_state"
+      : level === "city"
+      ? "location_city"
+      : "location_country";
+
   try {
-    const stats = await AnalyticsEvent.findAll({
+    const rows = await AnalyticsEvent.findAll({
+      where: domain ? { domain } : {},
       attributes: [
-        "event_type",
-        [fn("COUNT", col("id")), "total"]
+        [col(column), "location"],
+        [fn("COUNT", literal("*")), "count"]
       ],
-      where: {
-        event_type: {
-          [Op.in]: [
-            "BUYSELL_LISTING_APPROVED",
-            "BUYSELL_LISTING_BLOCKED"
-          ]
-        }
-      },
-      group: ["event_type"]
+      group: [column],
+      order: [[literal("count"), "DESC"]],
+      limit: 20,
+      raw: true
     });
 
-    return res.json({
-      success: true,
-      stats
-    });
+    return res.json({ success: true, level, data: rows });
 
   } catch (err) {
-    console.error("BUYSELL RATIO ERROR:", err);
-    return res.status(500).json({ message: "Analytics error" });
+    console.error("geoAnalytics error:", err);
+    return res.status(500).json({ message: "Failed to load geo analytics" });
   }
 };

@@ -5,7 +5,8 @@ import CommunityMember from "../../model/community/CommunityMember.js";
 import User from "../../model/User.js";
 import Host from "../../model/Host.js";
 import { getCache, setCache, deleteCache, deleteCacheByPrefix } from "../../services/cacheService.js";
-import { trackCommunityEvent } from "../../services/communityAnalytics.js";
+// import { trackCommunityEvent } from "../../services/communityAnalytics.js";
+import { trackEvent } from "../../services/Analytics.js";
 import { logAudit } from "../../services/auditLogger.js";
 /* ======================================================
    HELPERS
@@ -132,14 +133,19 @@ export const createPost = async (req, res) => {
   /* =====================================================
      4️⃣ ANALYTICS (NON-BLOCKING)
   ===================================================== */
-  trackCommunityEvent({
-    event_type: "COMMUNITY_POST_CREATED",
-    user_id: userId,
-    community_id: community.id,
+ trackEvent({
+  event_type: "COMMUNITY_POST_CREATED",
+  domain: "community",
+  actor: { user_id: userId },
+  entity: { type: "community_post", id: post.id },
+  location: {
     country: community.country,
     state: community.state,
-    metadata: { media_type: post.media_type }
-  }).catch(console.error);
+    city: community.city
+  },
+  metadata: { media_type: post.media_type }
+});
+
 
   /* =====================================================
      5️⃣ RESPONSE POPULATION (OPTIONAL)
