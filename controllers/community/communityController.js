@@ -3,7 +3,6 @@ import Event from "../../model/Events.models.js";
 import CommunityMember from "../../model/community/CommunityMember.js";
 import { setCache, getCache, deleteCache, deleteCacheByPrefix } from "../../services/cacheService.js";
 import { logAudit } from "../../services/auditLogger.js";
-import AnalyticsEvent from "../../model/DashboardAnalytics/AnalyticsEvent.js";
 import { trackCommunityEvent } from "../../services/communityAnalytics.js";
 /* CREATE COMMUNITY */
 export const createCommunity = async (req, res) => {

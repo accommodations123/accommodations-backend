@@ -1,4 +1,4 @@
-import AnalyticsEvent from "../../model/DashboardAnalytics/AnalyticsEvent";
+import AnalyticsEvent from "../../model/DashboardAnalytics/AnalyticsEvent.js";
 import { Op, fn, col, literal } from "sequelize";
 
 /* =====================================================

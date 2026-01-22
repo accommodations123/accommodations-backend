@@ -28,6 +28,7 @@ import travelRoutes from './routes/travel/travelRoutes.js'
 import CarrerRoutes from './routes/carrer/careers.routes.js'
 import analyticsRoutes from './routes/DashboardAnalytics/analyticsroutes.js'
 import EventAnalytics from './routes/DashboardAnalytics/eventanalyticsroutes.js'
+import buySellanalytics from './routes/DashboardAnalytics/buySellAnalyticsroutes.js'
  (async () => {
   try {
     await sequelize.authenticate();
@@ -76,6 +77,7 @@ import EventAnalytics from './routes/DashboardAnalytics/eventanalyticsroutes.js'
     app.use('/carrer',CarrerRoutes)
     app.use('/analytics',analyticsRoutes)
     app.use('/eventanalytics',EventAnalytics)
+    app.use('buysellanalytics', buySellanalytics)
 
     const server = http.createServer(app)
     initSocket(server)
