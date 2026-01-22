@@ -77,7 +77,7 @@ import buySellanalytics from './routes/DashboardAnalytics/buySellAnalyticsroutes
     app.use('/carrer',CarrerRoutes)
     app.use('/analytics',analyticsRoutes)
     app.use('/eventanalytics',EventAnalytics)
-    app.use('buysellanalytics', buySellanalytics)
+    app.use('/buysellanalytics', buySellanalytics)
 
     const server = http.createServer(app)
     initSocket(server)
