@@ -191,19 +191,17 @@ export const getCommunityById = async (req, res) => {
 
 
 /* JOIN COMMUNITY */
-
 export const joinCommunity = async (req, res) => {
+  const userId = req.user.id;
+  const communityId = Number(req.params.id);
+
+  if (!Number.isInteger(communityId)) {
+    return res.status(400).json({ message: "Invalid community id" });
+  }
+
   const t = await Community.sequelize.transaction();
 
   try {
-    const userId = req.user.id;
-    const communityId = Number(req.params.id);
-
-    if (!Number.isInteger(communityId)) {
-      await t.rollback();
-      return res.status(400).json({ message: "Invalid community id" });
-    }
-
     /* =========================
        1️⃣ LOCK COMMUNITY
        ========================= */
@@ -241,57 +239,42 @@ export const joinCommunity = async (req, res) => {
       });
     }
 
-  /* 3️⃣ CHECK HOST STATUS */
-const host = await Host.findOne({
-  where: { user_id: userId },
-  transaction: t
-});
+    /* =========================
+       3️⃣ CHECK HOST STATUS
+       ========================= */
+    const host = await Host.findOne({
+      where: { user_id: userId },
+      transaction: t
+    });
 
-if (!host) {
-  await t.rollback();
-  return res.status(403).json({
-    message: "Only approved hosts can join this community"
-  });
-}
-
-/* 4️⃣ CREATE MEMBERSHIP */
-await CommunityMember.create({
-  community_id: communityId,
-  user_id: userId,
-  role: "member",
-  is_host: true
-}, { transaction: t });
-
-community.members_count += 1;
-community.host_count += 1;
-await community.save({ transaction: t });
-
+    if (!host) {
+      await t.rollback();
+      return res.status(403).json({
+        message: "Only approved hosts can join this community"
+      });
+    }
 
     /* =========================
-       6️⃣ COMMIT
+       4️⃣ CREATE MEMBERSHIP
+       ========================= */
+    await CommunityMember.create({
+      community_id: communityId,
+      user_id: userId,
+      role: "member",
+      is_host: true
+    }, { transaction: t });
+
+    /* =========================
+       5️⃣ UPDATE AGGREGATES
+       ========================= */
+    community.members_count += 1;
+    community.host_count += 1;
+    await community.save({ transaction: t });
+
+    /* =========================
+       6️⃣ COMMIT (DB STATE FINAL)
        ========================= */
     await t.commit();
-
-    /* =========================
-       7️⃣ ANALYTICS (POST COMMIT)
-       ========================= */
-    trackCommunityEvent({
-      event_type: "COMMUNITY_JOINED",
-      user_id: userId,
-      community,
-      metadata: { is_host: isHost }
-    }).catch(console.error);
-
-    /* =========================
-       8️⃣ CACHE INVALIDATION
-       ========================= */
-    await deleteCache(`community:id:${communityId}`);
-    await deleteCacheByPrefix("communities:list:");
-
-    return res.json({
-      success: true,
-      message: "Joined community successfully"
-    });
 
   } catch (err) {
     await t.rollback();
@@ -301,6 +284,28 @@ await community.save({ transaction: t });
       message: "Failed to join community"
     });
   }
+
+  /* =========================
+     7️⃣ POST-COMMIT SIDE EFFECTS
+     (NEVER ROLLBACK DB)
+     ========================= */
+  
+  trackCommunityEvent({
+    event_type: "COMMUNITY_JOINED",
+    user_id: userId,
+    metadata: { 
+        community_id: communityId,
+        is_host: true 
+    }
+  }).catch(console.error);
+
+  deleteCache(`community:id:${communityId}`).catch(console.error);
+  deleteCacheByPrefix("communities:list:").catch(console.error);
+
+  return res.json({
+    success: true,
+    message: "Joined community successfully"
+  });
 };
 
 
