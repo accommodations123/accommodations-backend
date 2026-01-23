@@ -140,16 +140,15 @@ export const getCommunityById = async (req, res) => {
       }
 
       community = dbCommunity.toJSON();
-
-      // Cache ONLY public data
       await setCache(cacheKey, community, 300);
     }
 
     /* =========================
-       2️⃣ USER-SPECIFIC MEMBERSHIP (NO CACHE)
+       2️⃣ USER-SPECIFIC MEMBERSHIP
        ========================= */
     let isMember = false;
     let memberRole = null;
+    let isHost = false;
 
     if (req.user?.id) {
       const membership = await CommunityMember.findOne({
@@ -157,25 +156,27 @@ export const getCommunityById = async (req, res) => {
           community_id: communityId,
           user_id: req.user.id
         },
-        attributes: ["role"] // minimal data
+        attributes: ["role", "is_host"]
       });
 
       if (membership) {
         isMember = true;
         memberRole = membership.role;
+        isHost = membership.is_host;
       }
     }
 
     /* =========================
-       3️⃣ MERGE RESPONSE (SAFE)
+       3️⃣ RESPONSE
        ========================= */
     return res.json({
       success: true,
       community: {
         ...community,
         is_member: isMember,
-        isJoined: isMember, // frontend compatibility
-        member_role: memberRole
+        isJoined: isMember,
+        member_role: memberRole,
+        is_host: isHost
       }
     });
 
@@ -184,6 +185,7 @@ export const getCommunityById = async (req, res) => {
     return res.status(500).json({ message: "Failed to fetch community" });
   }
 };
+
 
 
 
