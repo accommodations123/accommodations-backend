@@ -76,33 +76,27 @@ export const requireAdminOrOwner = async (req, res, next) => {
       return res.status(400).json({ message: "Invalid community id" });
     }
 
-    /* =========================
-       1️⃣ COMMUNITY CHECK
-       ========================= */
-    const community = await Community.findOne({
-      where: {
-        id: communityId,
-        status: "active"
-      },
-      attributes: ["id"]
-    });
-
-    if (!community) {
-      return res.status(404).json({
-        message: "Community not found or inactive"
+    // Reuse if already loaded
+    if (!req.community) {
+      const community = await Community.findOne({
+        where: { id: communityId, status: "active" },
+        attributes: ["id"]
       });
+
+      if (!community) {
+        return res.status(404).json({
+          message: "Community not found or inactive"
+        });
+      }
+
+      req.community = community;
     }
 
-    /* =========================
-       2️⃣ ROLE CHECK (CORRECT)
-       ========================= */
     const member = await CommunityMember.findOne({
       where: {
         community_id: communityId,
         user_id: userId,
-        role: {
-          [Op.in]: ["admin", "owner"]
-        }
+        role: { [Op.in]: ["admin", "owner"] }
       }
     });
 
@@ -112,12 +106,7 @@ export const requireAdminOrOwner = async (req, res, next) => {
       });
     }
 
-    /* =========================
-       3️⃣ ATTACH CONTEXT
-       ========================= */
-    req.community = community;
     req.communityMember = member;
-
     next();
 
   } catch (err) {
@@ -127,4 +116,5 @@ export const requireAdminOrOwner = async (req, res, next) => {
     });
   }
 };
+
 

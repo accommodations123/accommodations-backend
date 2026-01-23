@@ -308,29 +308,47 @@ await community.save({ transaction: t });
 
 
 /* LEAVE COMMUNITY */
+import Community from "../../model/community/Community.js";
+import CommunityMember from "../../model/community/CommunityMember.js";
+import {
+  deleteCache,
+  deleteCacheByPrefix
+} from "../../services/cacheService.js";
+import { trackCommunityEvent } from "../../services/communityAnalytics.js";
+
 export const leaveCommunity = async (req, res) => {
+  const userId = req.user.id;
+  const communityId = Number(req.params.id);
+
+  if (!Number.isInteger(communityId)) {
+    return res.status(400).json({ message: "Invalid community id" });
+  }
+
   const t = await Community.sequelize.transaction();
 
   try {
-    const userId = req.user.id;
-    const communityId = Number(req.params.id);
-
-    if (!Number.isInteger(communityId)) {
-      await t.rollback();
-      return res.status(400).json({ message: "Invalid community id" });
-    }
-
+    /* =========================
+       1️⃣ LOCK MEMBERSHIP
+       ========================= */
     const member = await CommunityMember.findOne({
-      where: { community_id: communityId, user_id: userId },
+      where: {
+        community_id: communityId,
+        user_id: userId
+      },
       transaction: t,
       lock: t.LOCK.UPDATE
     });
 
     if (!member) {
       await t.rollback();
-      return res.status(400).json({ message: "You are not a member" });
+      return res.status(400).json({
+        message: "You are not a member of this community"
+      });
     }
 
+    /* =========================
+       2️⃣ OWNER CANNOT LEAVE
+       ========================= */
     if (member.role === "owner") {
       await t.rollback();
       return res.status(400).json({
@@ -338,39 +356,71 @@ export const leaveCommunity = async (req, res) => {
       });
     }
 
+    /* =========================
+       3️⃣ LOCK COMMUNITY
+       ========================= */
     const community = await Community.findByPk(communityId, {
       transaction: t,
       lock: t.LOCK.UPDATE
     });
 
+    if (!community) {
+      await t.rollback();
+      return res.status(404).json({
+        message: "Community not found"
+      });
+    }
+
+    /* =========================
+       4️⃣ DELETE MEMBERSHIP
+       ========================= */
     await member.destroy({ transaction: t });
 
-    community.members_count = Math.max(0, community.members_count - 1);
+    /* =========================
+       5️⃣ UPDATE AGGREGATES
+       ========================= */
+    community.members_count = Math.max(
+      0,
+      community.members_count - 1
+    );
+
     if (member.is_host) {
-      community.host_count = Math.max(0, community.host_count - 1);
+      community.host_count = Math.max(
+        0,
+        community.host_count - 1
+      );
     }
 
     await community.save({ transaction: t });
 
-    // ✅ Commit DB state first
+    /* =========================
+       6️⃣ COMMIT (DB STATE FINAL)
+       ========================= */
     await t.commit();
 
   } catch (err) {
     await t.rollback();
     console.error("LEAVE COMMUNITY ERROR:", err);
-    return res.status(500).json({ message: "Failed to leave community" });
+
+    return res.status(500).json({
+      message: "Failed to leave community"
+    });
   }
 
-  // =========================
-  // POST-COMMIT SIDE EFFECTS
-  // =========================
+  /* =========================
+     7️⃣ POST-COMMIT SIDE EFFECTS
+     (NEVER ROLLBACK DB)
+     ========================= */
+
   trackCommunityEvent({
     event_type: "COMMUNITY_LEFT",
-    user_id: req.user.id,
-    metadata: { role: "member" }
+    user_id: userId,
+    metadata: {
+      community_id: communityId
+    }
   }).catch(console.error);
 
-  deleteCache(`community:id:${req.params.id}`).catch(console.error);
+  deleteCache(`community:id:${communityId}`).catch(console.error);
   deleteCacheByPrefix("communities:list:").catch(console.error);
 
   return res.json({
@@ -378,6 +428,7 @@ export const leaveCommunity = async (req, res) => {
     message: "Left community successfully"
   });
 };
+
 
 
 
