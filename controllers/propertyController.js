@@ -317,9 +317,9 @@ export const savePricing = async (req, res) => {
 export const submitProperty = async (req, res) => {
   try {
     const property = req.property;
-    if (property.status !== "draft") {
+    if (property.status === "approved") {
       return res.status(400).json({
-        message: "Only draft properties can be submitted"
+        message: "Approved properties cannot be re-submitted"
       });
     }
 
