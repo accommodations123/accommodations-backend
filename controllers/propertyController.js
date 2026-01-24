@@ -75,9 +75,9 @@ export const saveBasicInfo = async (req, res) => {
   try {
     const property = req.property;
 
-    if (property.status !== "draft") {
+    if (property.status === "approved") {
       return res.status(400).json({
-        message: "Only draft properties can be edited"
+        message: "Approved properties cannot be edited"
       });
     }
 
@@ -114,9 +114,9 @@ export const saveBasicInfo = async (req, res) => {
 export const saveAddress = async (req, res) => {
   try {
     const property = req.property;
-    if (property.status !== "draft") {
+    if (property.status === "approved") {
       return res.status(400).json({
-        message: "Only draft properties can be edited"
+        message: "Approved properties cannot be edited"
       });
     }
 
@@ -151,9 +151,9 @@ export const saveAddress = async (req, res) => {
 export const saveMedia = async (req, res) => {
   try {
     const property = req.property;
-    if (property.status !== "draft") {
+    if (property.status === "approved") {
       return res.status(400).json({
-        message: "Only draft properties can be edited"
+        message: "Approved properties cannot be edited"
       });
     }
 
@@ -189,9 +189,9 @@ export const saveMedia = async (req, res) => {
 export const saveVideo = async (req, res) => {
   try {
     const property = req.property;
-    if (property.status !== "draft") {
+    if (property.status === "approved") {
       return res.status(400).json({
-        message: "Only draft properties can be edited"
+        message: "Approved properties cannot be edited"
       });
     }
 
@@ -219,9 +219,9 @@ export const saveVideo = async (req, res) => {
 export const saveAmenities = async (req, res) => {
   try {
     const property = req.property;
-    if (property.status !== "draft") {
+    if (property.status === "approved") {
       return res.status(400).json({
-        message: "Only draft properties can be edited"
+        message: "Approved properties cannot be edited"
       });
     }
 
@@ -250,9 +250,9 @@ export const saveAmenities = async (req, res) => {
 export const saveRules = async (req, res) => {
   try {
     const property = req.property;
-    if (property.status !== "draft") {
+    if (property.status === "approved") {
       return res.status(400).json({
-        message: "Only draft properties can be edited"
+        message: "Approved properties cannot be edited"
       });
     }
 
@@ -281,9 +281,9 @@ export const saveRules = async (req, res) => {
 export const savePricing = async (req, res) => {
   try {
     const property = req.property;
-    if (property.status !== "draft") {
+    if (property.status === "approved") {
       return res.status(400).json({
-        message: "Only draft properties can be edited"
+        message: "Approved properties cannot be edited"
       });
     }
 
@@ -653,7 +653,7 @@ export const getPropertyById = async (req, res) => {
           country: req.headers["x-country"] || null,
           state: req.headers["x-state"] || null,
           created_at: new Date()
-        }).catch(() => {});
+        }).catch(() => { });
 
         return res.json({ success: true, property: cached });
       }
@@ -711,7 +711,7 @@ export const getPropertyById = async (req, res) => {
       country: req.headers["x-country"] || property.country || null,
       state: req.headers["x-state"] || property.state || null,
       created_at: new Date()
-    }).catch(() => {});
+    }).catch(() => { });
 
     // ✅ Cache only VALID data
     await setCache(`property:${id}`, property, 30);

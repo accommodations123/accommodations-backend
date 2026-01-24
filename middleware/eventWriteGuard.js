@@ -30,11 +30,11 @@ export const eventWriteGuard = async (req, res, next) => {
       return res.status(403).json({ message: "You do not own this event" });
     }
 
-    if (["approved", "rejected"].includes(event.status)) {
-      return res.status(400).json({
-        message: `Event cannot be modified when status is '${event.status}'`
-      });
-    }
+    // if (["approved", "rejected"].includes(event.status)) {
+    //   return res.status(400).json({
+    //     message: `Event cannot be modified when status is '${event.status}'`
+    //   });
+    // }
 
     req.event = event;
     req.eventHost = event.Host;
