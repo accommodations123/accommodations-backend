@@ -33,16 +33,16 @@ import communityanalytics from './routes/DashboardAnalytics/communityAnalytics.r
 import travelanalytics from './routes/DashboardAnalytics/travelAnalytics.routes.js'
 import notification from './routes/notification.routes.js'
 import './services/workers/emailWorker.js'
-(async () => {
+ (async () => {
   try {
-
+    await sequelize.authenticate();
+    await sequelize.sync();
 
     console.log("MySQL connected");
 
     const app = express();
     /* ================= CORS (REST + COOKIES) ================= */
     const allowedOrigins = [
-      "https://accomodation.api.test.nextkinlife.live",
       "https://accomodation.test.nextkinlife.live",
       "https://accomodation.admin.test.nextkinlife.live",
       "http://localhost:5173",
@@ -56,16 +56,12 @@ import './services/workers/emailWorker.js'
           if (allowedOrigins.includes(origin)) return cb(null, true);
           return cb(new Error("CORS blocked"));
         },
-        credentials: true,
-        methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-        allowedHeaders: ["Content-Type", "Authorization"]
+        credentials: true
       })
     );
-    // 🔴 REQUIRED FOR PREFLIGHT
-    app.options(/.*/, cors());
-    app.use(express.json());
+     app.use(express.json());
     app.use(cookieParser())
-
+   
 
 
     // Routes
@@ -82,36 +78,21 @@ import './services/workers/emailWorker.js'
     app.use('/community', communityContentRoutes)
     app.use('/auth', authRoutes)
     app.use('/travel', travelRoutes)
-    app.use('/carrer', CarrerRoutes)
-    app.use('/analytics', analyticsRoutes)
-    app.use('/eventanalytics', EventAnalytics)
+    app.use('/carrer',CarrerRoutes)
+    app.use('/analytics',analyticsRoutes)
+    app.use('/eventanalytics',EventAnalytics)
     app.use('/buysellanalytics', buySellanalytics)
-    app.use('/communityanalytics', communityanalytics)
-    app.use('/travelanalytics', travelanalytics)
-    app.use("/notification", notification);
-    /* ================= SERVER ================= */
-    const server = http.createServer(app);
+    app.use('/communityanalytics',communityanalytics)
+    app.use('/travelanalytics',travelanalytics)
+    app.use("/notification",notification);
 
+    const server = http.createServer(app)
+    initSocket(server)
     const PORT = process.env.PORT || 5000;
-    server.listen(PORT, "0.0.0.0", () => {
-      console.log(`✅ Server running on ${PORT}`);
-    });
-
-    /* ================= SOCKETS ================= */
-    await initSocket(server);
-
-    /* ================= DB ================= */
-    await sequelize.authenticate();
-    console.log("✅ MySQL authenticated");
-
-    // NEVER sync in production
-    if (process.env.NODE_ENV !== "production") {
-      await sequelize.sync();
-      console.log("⚠️ Sequelize sync enabled (non-prod only)");
-    }
+    server.listen(PORT, "0.0.0.0", () => console.log("Server running on", PORT));
 
   } catch (err) {
-    console.error("❌ Startup failed:", err);
-    process.exit(1);
+    console.log("DB Error:", err.message);
   }
 })();
+
