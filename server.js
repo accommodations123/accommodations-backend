@@ -33,10 +33,9 @@ import communityanalytics from './routes/DashboardAnalytics/communityAnalytics.r
 import travelanalytics from './routes/DashboardAnalytics/travelAnalytics.routes.js'
 import notification from './routes/notification.routes.js'
 import './services/workers/emailWorker.js'
- (async () => {
+(async () => {
   try {
-    await sequelize.authenticate();
-    await sequelize.sync();
+
 
     console.log("MySQL connected");
 
@@ -57,12 +56,16 @@ import './services/workers/emailWorker.js'
           if (allowedOrigins.includes(origin)) return cb(null, true);
           return cb(new Error("CORS blocked"));
         },
-        credentials: true
+        credentials: true,
+        methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        allowedHeaders: ["Content-Type", "Authorization"]
       })
     );
-     app.use(express.json());
+    // 🔴 REQUIRED FOR PREFLIGHT
+    app.options(/.*/, cors());
+    app.use(express.json());
     app.use(cookieParser())
-   
+
 
 
     // Routes
@@ -79,21 +82,36 @@ import './services/workers/emailWorker.js'
     app.use('/community', communityContentRoutes)
     app.use('/auth', authRoutes)
     app.use('/travel', travelRoutes)
-    app.use('/carrer',CarrerRoutes)
-    app.use('/analytics',analyticsRoutes)
-    app.use('/eventanalytics',EventAnalytics)
+    app.use('/carrer', CarrerRoutes)
+    app.use('/analytics', analyticsRoutes)
+    app.use('/eventanalytics', EventAnalytics)
     app.use('/buysellanalytics', buySellanalytics)
-    app.use('/communityanalytics',communityanalytics)
-    app.use('/travelanalytics',travelanalytics)
-    app.use("/notification",notification);
+    app.use('/communityanalytics', communityanalytics)
+    app.use('/travelanalytics', travelanalytics)
+    app.use("/notification", notification);
+    /* ================= SERVER ================= */
+    const server = http.createServer(app);
 
-    const server = http.createServer(app)
-    initSocket(server)
     const PORT = process.env.PORT || 5000;
-    server.listen(PORT, "0.0.0.0", () => console.log("Server running on", PORT));
+    server.listen(PORT, "0.0.0.0", () => {
+      console.log(`✅ Server running on ${PORT}`);
+    });
+
+    /* ================= SOCKETS ================= */
+    await initSocket(server);
+
+    /* ================= DB ================= */
+    await sequelize.authenticate();
+    console.log("✅ MySQL authenticated");
+
+    // NEVER sync in production
+    if (process.env.NODE_ENV !== "production") {
+      await sequelize.sync();
+      console.log("⚠️ Sequelize sync enabled (non-prod only)");
+    }
 
   } catch (err) {
-    console.log("DB Error:", err.message);
+    console.error("❌ Startup failed:", err);
+    process.exit(1);
   }
 })();
-

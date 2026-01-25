@@ -1,17 +1,41 @@
 import Redis from "ioredis";
 
-let redis = null;
+let redisInstance = null;
 
-if (process.env.USE_REDIS === "true") {
-  redis = new Redis(process.env.REDIS_URL);
+// ✅ named export (for `import { redis }`)
+export const redis = {
+  get client() {
+    return redisInstance;
+  }
+};
 
-  redis.on("connect", () => {
-    console.log("Redis connected");
+// ✅ default export (for `import redis`)
+export default redis.client;
+
+export const initRedis = () => {
+  if (redisInstance) return redisInstance;
+
+  const host = process.env.REDIS_HOST;
+  const port = process.env.REDIS_PORT;
+
+  if (!host || !port) {
+    throw new Error("REDIS_HOST or REDIS_PORT missing");
+  }
+
+  redisInstance = new Redis({
+    host,
+    port: Number(port),
+    maxRetriesPerRequest: null,
+    enableReadyCheck: true
   });
 
-  redis.on("error", err => {
-    console.error("Redis error:", err);
+  redisInstance.on("connect", () => {
+    console.log(`✅ Redis connected (${host}:${port})`);
   });
-}
 
-export default redis;
+  redisInstance.on("error", (err) => {
+    console.error("❌ Redis error:", err.message);
+  });
+
+  return redisInstance;
+};
