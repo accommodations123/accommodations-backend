@@ -37,61 +37,61 @@ export const initSocket = async (httpServer) => {
   /* =========================================================
      REDIS ADAPTER (HORIZONTAL SCALING)
   ========================================================= */
-  const pubClient = createClient({
-    url: process.env.REDIS_URL || "redis://127.0.0.1:6379"
-  });
+  // const pubClient = createClient({
+  //   url: process.env.REDIS_URL || "redis://127.0.0.1:6379"
+  // });
 
-  const subClient = pubClient.duplicate();
+  // const subClient = pubClient.duplicate();
 
-  pubClient.on("error", (err) =>
-    console.error("❌ Redis pub error:", err)
-  );
-  subClient.on("error", (err) =>
-    console.error("❌ Redis sub error:", err)
-  );
+  // pubClient.on("error", (err) =>
+  //   console.error("❌ Redis pub error:", err)
+  // );
+  // subClient.on("error", (err) =>
+  //   console.error("❌ Redis sub error:", err)
+  // );
 
-  await pubClient.connect();
-  await subClient.connect();
+  // await pubClient.connect();
+  // await subClient.connect();
 
-  io.adapter(createAdapter(pubClient, subClient));
+  // io.adapter(createAdapter(pubClient, subClient));
 
-  console.log("✅ Socket.IO Redis adapter connected");
+  // console.log("✅ Socket.IO Redis adapter connected");
 
-  /* =========================================================
-     SOCKET AUTH MIDDLEWARE
-  ========================================================= */
-  io.use((socket, next) => {
-    try {
-      let token = socket.handshake.auth?.token;
+  // /* =========================================================
+  //    SOCKET AUTH MIDDLEWARE
+  // ========================================================= */
+  // io.use((socket, next) => {
+  //   try {
+  //     let token = socket.handshake.auth?.token;
 
-      // 🔐 Cookie fallback (browser clients)
-      if (!token && socket.handshake.headers.cookie) {
-        const cookies = cookie.parse(socket.handshake.headers.cookie);
-        token = cookies.access_token;
-      }
+  //     // 🔐 Cookie fallback (browser clients)
+  //     if (!token && socket.handshake.headers.cookie) {
+  //       const cookies = cookie.parse(socket.handshake.headers.cookie);
+  //       token = cookies.access_token;
+  //     }
 
-      if (!token) {
-        return next(new Error("Authentication token missing"));
-      }
+  //     if (!token) {
+  //       return next(new Error("Authentication token missing"));
+  //     }
 
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+  //     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-      // 🔒 Hard role validation
-      if (!["user", "admin"].includes(decoded.role)) {
-        return next(new Error("Invalid role"));
-      }
+  //     // 🔒 Hard role validation
+  //     if (!["user", "admin"].includes(decoded.role)) {
+  //       return next(new Error("Invalid role"));
+  //     }
 
-      socket.user = {
-        id: decoded.id,
-        role: decoded.role
-      };
+  //     socket.user = {
+  //       id: decoded.id,
+  //       role: decoded.role
+  //     };
 
-      next();
-    } catch (err) {
-      console.error("❌ Socket auth error:", err.message);
-      next(new Error("Authentication failed"));
-    }
-  });
+  //     next();
+  //   } catch (err) {
+  //     console.error("❌ Socket auth error:", err.message);
+  //     next(new Error("Authentication failed"));
+  //   }
+  // });
 
   /* =========================================================
      CONNECTION HANDLER
