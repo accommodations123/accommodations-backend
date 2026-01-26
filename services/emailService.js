@@ -2,6 +2,15 @@
 import nodemailer from "nodemailer";
 import "dotenv/config";
 
+import { fileURLToPath } from "url";
+import path from "path";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+console.log("🔥 LOADED EMAIL SERVICE FILE:", __filename);
+
+
 /**
  * INTERNAL NOTIFICATION TYPES
  */
@@ -152,6 +161,9 @@ const templates = {
  * SEND EMAIL
  */
 export const sendNotificationEmail = async ({ to, type, data }) => {
+  console.log("🔥 EMAIL SERVICE CALLED");
+  console.log("🔥 TYPE RECEIVED:", type);
+
   const template = templates[type];
   if (!template) {
     throw new Error(`No email template for type: ${type}`);
