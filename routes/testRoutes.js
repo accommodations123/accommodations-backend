@@ -1,5 +1,6 @@
+// src/routes/testRoutes.js
 import express from 'express';
-import emailQueue from '../services/queues/emailQueue.js'; // Adjust path if necessary
+import { createJob } from '../services/queues/emailQueue.js'; // ✅ Import helper
 
 const router = express.Router();
 
@@ -7,16 +8,16 @@ router.post('/send-test-email', async (req, res) => {
   try {
     console.log("🧪 Adding test email job to queue...");
 
-    // Add a job to the BullMQ queue
-    const job = await emailQueue.add({
-      to: "bhargavreddy.mettu333@gmail.com", // ⚠️ CHANGE THIS to your real email
-      type: "HOST_APPROVED", // Ensure this type exists in emailService.js
-      data: {
+    // ✅ USE SANITIZER INSTEAD OF DIRECT ADD
+    const job = await createJob(
+      "HOST_APPROVED",
+      {
+        to: "your-email@example.com", 
         title: "Test Email from Server",
         message: "This is a test to verify the worker is running.",
-        metadata: { test: true }
+        metadata: { test: true } // Pass object, helper handles stringification
       }
-    });
+    );
 
     return res.status(200).json({
       success: true,
