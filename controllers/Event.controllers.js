@@ -7,6 +7,7 @@ import { notifyAndEmail } from "../services/notificationDispatcher.js";
 import { NOTIFICATION_TYPES } from "../services/emailService.js";
 import { getCache, setCache, deleteCache, deleteCacheByPrefix } from "../services/cacheService.js";
 import AnalyticsEvent from "../model/DashboardAnalytics/AnalyticsEvent.js";
+import { getIO } from "../services/socket.js"; // (Or wherever your socket file is located)
 // ======================================================
 // 1. CREATE EVENT DRAFT
 // ======================================================
@@ -653,7 +654,7 @@ export const rejectEvent = async (req, res) => {
       metadata: {
         eventId: event.id,
         title: event.title,
-        reason
+        reason: event.rejection_reason // <--- Fixed
       }
     });
 
