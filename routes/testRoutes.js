@@ -12,6 +12,7 @@ router.post('/send-test-email', async (req, res) => {
     const job = await createJob(
       "HOST_APPROVED",
       {
+        type: "HOST_APPROVED",
         to: "bhargavreddy.mettu333@gmail.com", 
         title: "Test Email from Server",
         message: "This is a test to verify the worker is running.",
