@@ -6,13 +6,13 @@ const router = express.Router();
 
 router.post('/send-test-email', async (req, res) => {
   try {
-    console.log("🧪 Adding test email job to queue...");
+    console.log("🧪 Adding test email job to queue...")
 
     // ✅ USE SANITIZER INSTEAD OF DIRECT ADD
     const job = await createJob(
       "HOST_APPROVED",
       {
-        to: "your-email@example.com", 
+        to: "bhargavreddy.mettu333@gmail.com", 
         title: "Test Email from Server",
         message: "This is a test to verify the worker is running.",
         metadata: { test: true } // Pass object, helper handles stringification
