@@ -633,68 +633,49 @@ export const getAllPropertiesWithHosts = async (req, res) => {
 // single property
 export const getPropertyById = async (req, res) => {
   try {
-    const id = req.params.id;
+    const { id } = req.params;
     const now = new Date();
 
-    // ⚠️ NEVER trust cache blindly
-    const cached = await getCache(`property:${id}`);
-    if (cached) {
-      if (
-        cached.status !== "approved" ||
-        cached.is_deleted ||
-        cached.is_expired ||
-        !cached.listing_expires_at ||
-        new Date(cached.listing_expires_at) <= now
-      ) {
-        // ❌ Cached but invalid → kill cache
-        await deleteCache(`property:${id}`);
-      } else {
-        // 🔍 Analytics still fires
-        AnalyticsEvent.create({
-          event_type: "PROPERTY_VIEWED",
-          user_id: req.user?.id || null,
-          property_id: id,
-          country: req.headers["x-country"] || null,
-          state: req.headers["x-state"] || null,
-          created_at: new Date()
-        }).catch(() => { });
+    const cacheKey = `property:public:${id}`;
 
-        return res.json({ success: true, property: cached });
-      }
+    // ===== CACHE =====
+    const cached = await getCache(cacheKey);
+    if (cached) {
+      return res.json({ success: true, property: cached });
     }
 
-    // ✅ DB fetch WITH visibility rules
+    // ===== DB FETCH =====
     const property = await Property.findOne({
       where: {
         id,
-        status: "approved",
         is_deleted: false,
-        is_expired: false,
-        listing_expires_at: {
-          [Op.gt]: now
-        }
+        [Op.or]: [
+          { status: "pending" }, // ✅ PUBLIC pending
+          {
+            status: "approved",
+            is_expired: false,
+            listing_expires_at: { [Op.gt]: now }
+          }
+        ]
       },
       include: [
         {
           model: Host,
+          required: false, // IMPORTANT
           attributes: [
             "id",
             "full_name",
             "phone",
-            "country",
-            "state",
-            "city",
-            "zip_code",
-            "street_address",
             "status",
             "whatsapp",
             "instagram",
             "facebook"
           ],
-          include: [   
+          include: [
             {
               model: User,
-              attributes: ["id", "email","profile_image"]
+              required: false,
+              attributes: ["id", "email", "profile_image"]
             }
           ]
         }
@@ -704,23 +685,48 @@ export const getPropertyById = async (req, res) => {
     if (!property) {
       return res.status(404).json({
         success: false,
-        message: "Property expired or not available"
+        message: "Property not available"
       });
     }
 
+    // ===== NORMALIZE SHAPE (CRITICAL) =====
+    const plain = property.get({ plain: true });
+
+    plain.Host = plain.Host || {
+      id: null,
+      full_name: "Property Host",
+      phone: "",
+      whatsapp: "",
+      instagram: "",
+      facebook: "",
+      status: "pending",
+      User: {
+        id: null,
+        email: "",
+        profile_image: null
+      }
+    };
+
+    plain.Host.User = plain.Host.User || {
+      id: null,
+      email: "",
+      profile_image: null
+    };
+
+    // ===== ANALYTICS =====
     AnalyticsEvent.create({
       event_type: "PROPERTY_VIEWED",
       user_id: req.user?.id || null,
       property_id: id,
-      country: req.headers["x-country"] || property.country || null,
-      state: req.headers["x-state"] || property.state || null,
+      country: req.headers["x-country"] || plain.country || null,
+      state: req.headers["x-state"] || plain.state || null,
       created_at: new Date()
-    }).catch(() => { });
+    }).catch(() => {});
 
-    // ✅ Cache only VALID data
-    await setCache(`property:${id}`, property, 30);
+    // ===== CACHE SAFE DATA =====
+    await setCache(cacheKey, plain, 30);
 
-    return res.json({ success: true, property });
+    return res.json({ success: true, property: plain });
 
   } catch (err) {
     console.error("GET PROPERTY ERROR:", err);
@@ -730,5 +736,6 @@ export const getPropertyById = async (req, res) => {
     });
   }
 };
+
 
 
