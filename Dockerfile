@@ -1,7 +1,7 @@
 # ---------- Stage 1: Build & install dependencies ----------
 FROM node:18-alpine AS build
  
-WORKDIR /accommodations-backend
+WORKDIR /Production_backend
  
 # Copy dependency files
 COPY package.json package-lock.json* ./
@@ -19,7 +19,7 @@ COPY . .
 # ---------- Stage 2: Production image ----------
 FROM node:18-alpine AS production
  
-WORKDIR /accommodations-backend
+WORKDIR /Production_backend
  
 # Copy only package files first for clean prod install
 COPY package.json package-lock.json* ./
@@ -28,7 +28,7 @@ COPY package.json package-lock.json* ./
 RUN npm ci --silent --only=production
  
 # Copy build output or JS source
-COPY --from=build /accommodations-backend ./
+COPY --from=build /Production_backend ./
 
 # Expose backend port
 EXPOSE 5000
