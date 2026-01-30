@@ -6,6 +6,14 @@ import User from "../model/User.js";
 import { getCache, setCache } from "../services/cacheService.js";
 
 // GET approved snapshot list
+const normalize = (value) => {
+  if (!value) return null;
+  if (typeof value !== "string") return null;
+
+  const v = value.trim().toLowerCase();
+  return v.length ? v : null;
+};
+
 export const getApprovedList = async (req, res) => {
   try {
     const country = normalize(req.headers["x-country"] || req.query.country);
@@ -52,10 +60,11 @@ export const getApprovedList = async (req, res) => {
     return res.json({ success: true, data: formatted });
 
   } catch (error) {
-    console.log("APPROVED LIST ERROR", error);
+    console.error("APPROVED LIST ERROR", error);
     return res.status(500).json({ message: "Server error" });
   }
 };
+
 
 
 
