@@ -5,7 +5,6 @@ import User from "../model/User.js";
 import { Op, Sequelize } from "sequelize";
 import { getCache, setCache } from "../services/cacheService.js";
 
-
 /* ───────────────── UTILITIES ───────────────── */
 
 const normalize = (v) => {
@@ -90,17 +89,13 @@ export const getApprovedList = async (req, res) => {
   }
 };
 
+/* ───────────────── LIVE APPROVED + HOST DETAILS ───────────────── */
 
-
-
-// GET approved properties with live host details
 export const getApprovedWithHosts = async (req, res) => {
   try {
-    console.log("➡️ getApprovedWithHosts HIT");
-
-    const country = req.headers["x-country"] || req.query.country || null;
-    const state = req.headers["x-state"] || req.query.state || null;
-    const city = req.headers["x-city"] || req.query.city || null;
+    const country  = req.headers["x-country"] || req.query.country || null;
+    const state    = req.headers["x-state"] || req.query.state || null;
+    const city     = req.headers["x-city"] || req.query.city || null;
     const zip_code = req.headers["x-zip-code"] || req.query.zip_code || null;
 
     const cacheKey =
@@ -111,7 +106,15 @@ export const getApprovedWithHosts = async (req, res) => {
       return res.json({ success: true, data: cached });
     }
 
-    const where = { status: "approved" };
+    const where = {
+      status: "approved",
+      is_deleted: false,
+      is_expired: false,
+      listing_expires_at: {
+        [Op.gt]: new Date()
+      }
+    };
+
     if (country) where.country = country;
     if (state) where.state = state;
     if (city) where.city = city;
@@ -150,7 +153,6 @@ export const getApprovedWithHosts = async (req, res) => {
 
   } catch (err) {
     console.error("GET APPROVED W HOSTS ERROR:", err);
-    return res.status(500).json({ message: "server error" });
+    return res.status(500).json({ message: "Server error" });
   }
 };
-
