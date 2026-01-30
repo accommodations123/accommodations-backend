@@ -2,18 +2,24 @@ import ApprovedHost from "../model/Approved.js";
 import Property from "../model/Property.js";
 import Host from "../model/Host.js";
 import User from "../model/User.js";
-
+import { Op, Sequelize } from "sequelize";
 import { getCache, setCache } from "../services/cacheService.js";
 
-// GET approved snapshot list
-const normalize = (value) => {
-  if (!value) return null;
-  if (typeof value !== "string") return null;
 
+/* ─────────────────────────────
+   UTILS
+───────────────────────────── */
+const normalize = (value) => {
+  if (!value || typeof value !== "string") return null;
   const v = value.trim().toLowerCase();
   return v.length ? v : null;
 };
 
+const safe = (v) => v ?? "all";
+
+/* ─────────────────────────────
+   GET APPROVED SNAPSHOT LIST
+───────────────────────────── */
 export const getApprovedList = async (req, res) => {
   try {
     const country = normalize(req.headers["x-country"] || req.query.country);
@@ -21,38 +27,76 @@ export const getApprovedList = async (req, res) => {
     const city = normalize(req.headers["x-city"] || req.query.city);
     const zip_code = normalize(req.headers["x-zip-code"] || req.query.zip_code);
 
-    const cacheKey =
-      `approved_snapshot_list:${country || "all"}:${state || "all"}:${city || "all"}:${zip_code || "all"}`;
+    const cacheKey = `approved_snapshot_list:${safe(country)}:${safe(state)}:${safe(city)}:${safe(zip_code)}`;
 
     const cached = await getCache(cacheKey);
     if (cached) {
       return res.json({ success: true, data: cached });
     }
 
+    /* ───────── SAFE JSON FILTERS ───────── */
     const where = {};
-    if (country) where["property_snapshot.country"] = country;
-    if (state) where["property_snapshot.state"] = state;
-    if (city) where["property_snapshot.city"] = city;
-    if (zip_code) where["property_snapshot.zip_code"] = zip_code;
+
+    const andConditions = [];
+
+    if (country) {
+      andConditions.push(
+        Sequelize.where(
+          Sequelize.json("property_snapshot.country"),
+          country
+        )
+      );
+    }
+
+    if (state) {
+      andConditions.push(
+        Sequelize.where(
+          Sequelize.json("property_snapshot.state"),
+          state
+        )
+      );
+    }
+
+    if (city) {
+      andConditions.push(
+        Sequelize.where(
+          Sequelize.json("property_snapshot.city"),
+          city
+        )
+      );
+    }
+
+    if (zip_code) {
+      andConditions.push(
+        Sequelize.where(
+          Sequelize.json("property_snapshot.zip_code"),
+          zip_code
+        )
+      );
+    }
+
+    if (andConditions.length) {
+      where[Op.and] = andConditions;
+    }
 
     const list = await ApprovedHost.findAll({
       where,
-      order: [["createdAt", "DESC"]]
+      order: [["created_at", "DESC"]] // ⚠️ use DB column name, not createdAt
     });
 
     const formatted = list.map(item => ({
       propertyId: item.property_id,
-      title: item.property_snapshot?.title,
-      country: item.property_snapshot?.country,
-      state: item.property_snapshot?.state,
-      city: item.property_snapshot?.city,
-      zip_code: item.property_snapshot?.zip_code,
-      street_address: item.property_snapshot?.street_address,
-      pricePerNight: item.property_snapshot?.price_per_night,
-      photos: item.property_snapshot?.photos,
-      ownerName: item.host_snapshot?.full_name,
-      ownerEmail: item.host_snapshot?.email,
-      ownerPhone: item.host_snapshot?.phone
+      title: item.property_snapshot?.title ?? null,
+      country: item.property_snapshot?.country ?? null,
+      state: item.property_snapshot?.state ?? null,
+      city: item.property_snapshot?.city ?? null,
+      zip_code: item.property_snapshot?.zip_code ?? null,
+      street_address: item.property_snapshot?.street_address ?? null,
+      pricePerNight: item.property_snapshot?.price_per_night ?? null,
+      photos: item.property_snapshot?.photos ?? [],
+      ownerName: item.host_snapshot?.full_name ?? null,
+      ownerEmail: item.host_snapshot?.email ?? null,
+      ownerPhone: item.host_snapshot?.phone ?? null
     }));
 
     await setCache(cacheKey, formatted, 300);
@@ -60,13 +104,10 @@ export const getApprovedList = async (req, res) => {
     return res.json({ success: true, data: formatted });
 
   } catch (error) {
-    console.error("APPROVED LIST ERROR", error);
+    console.error("APPROVED LIST ERROR:", error);
     return res.status(500).json({ message: "Server error" });
   }
 };
-
-
-
 
 
 // GET approved properties with live host details
