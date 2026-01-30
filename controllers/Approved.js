@@ -6,18 +6,19 @@ import { Op, Sequelize } from "sequelize";
 import { getCache, setCache } from "../services/cacheService.js";
 
 
-/* ───────────── UTILS ───────────── */
+/* ───────────────── UTILITIES ───────────────── */
+
 const normalize = (v) => {
   if (!v || typeof v !== "string") return null;
   const s = v.trim().toLowerCase();
   return s.length ? s : null;
 };
 
-const safe = (v) => v ?? "all";
+const safe = (v) => (v ? v : "all");
 
-/* ───────────── CONTROLLER ───────────── */
 export const getApprovedList = async (req, res) => {
   try {
+    // adminAuth middleware MUST be applied at route level
     if (!req.admin) {
       return res.status(403).json({ message: "Unauthorized" });
     }
@@ -34,30 +35,36 @@ export const getApprovedList = async (req, res) => {
       return res.json({ success: true, data: cached });
     }
 
-    const and = [];
+    /* ───────── JSON FILTERS (CORRECT ALIASING) ───────── */
+
+    const conditions = [];
 
     const jsonEq = (path, value) =>
       Sequelize.where(
         Sequelize.fn(
           "JSON_UNQUOTE",
-          Sequelize.fn("JSON_EXTRACT", Sequelize.col("property_snapshot"), path)
+          Sequelize.fn(
+            "JSON_EXTRACT",
+            Sequelize.col("ApprovedHost.property_snapshot"), // ✅ CRITICAL FIX
+            path
+          )
         ),
         value
       );
 
-    if (country) and.push(jsonEq("$.country", country));
-    if (state) and.push(jsonEq("$.state", state));
-    if (city) and.push(jsonEq("$.city", city));
-    if (zip) and.push(jsonEq("$.zip_code", zip));
+    if (country) conditions.push(jsonEq("$.country", country));
+    if (state) conditions.push(jsonEq("$.state", state));
+    if (city) conditions.push(jsonEq("$.city", city));
+    if (zip) conditions.push(jsonEq("$.zip_code", zip));
 
-    const where = and.length ? { [Op.and]: and } : {};
+    const where = conditions.length ? { [Op.and]: conditions } : {};
 
     const list = await ApprovedHost.findAll({
       where,
-      order: [["created_at", "DESC"]] // ✔ correct for underscored
+      order: [["created_at", "DESC"]]
     });
 
-    const formatted = list.map(item => ({
+    const formatted = list.map((item) => ({
       propertyId: item.property_id,
       title: item.property_snapshot?.title ?? null,
       country: item.property_snapshot?.country ?? null,
