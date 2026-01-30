@@ -35,6 +35,10 @@ const Job = sequelize.define(
       type: DataTypes.STRING(150),
       allowNull: false
     },
+    geo_restriction: {
+      type: DataTypes.STRING(150),
+      allowNull: true
+    },
 
     work_style: {
       type: DataTypes.ENUM("remote", "hybrid", "onsite"),
@@ -42,13 +46,19 @@ const Job = sequelize.define(
     },
 
     employment_type: {
-      type: DataTypes.ENUM("full_time", "part_time", "contract", "internship"),
+      type: DataTypes.STRING(50),
       allowNull: false
+      // Contract | C2C | Full Time | Contract to Hire
     },
-
+    contract_duration: {
+      type: DataTypes.STRING(50),
+      allowNull: true
+      // 6 months | Long Term | 12+ Months
+    },
     experience_level: {
-      type: DataTypes.ENUM("junior", "mid", "senior", "lead"),
+      type: DataTypes.STRING(50),
       allowNull: false
+      // "12+ years", "Senior", "Lead"
     },
 
     salary_range: {
@@ -73,7 +83,25 @@ const Job = sequelize.define(
 
     skills: {
       type: DataTypes.JSON,
+      defaultValue: () => ({
+        primary: [],
+        secondary: [],
+        nice_to_have: []
+      })
+    },
+
+    mandatory_conditions: {
+      type: DataTypes.JSON,
       defaultValue: []
+      // Ex-Equifax, Local only, F2F interview
+    },
+    /* ───────────────
+   METADATA
+─────────────── */
+    metadata: {
+      type: DataTypes.JSON,
+      defaultValue: {}
+      // source, client domain, posting channel
     },
 
     featured: {
@@ -105,6 +133,8 @@ const Job = sequelize.define(
       { fields: ["department"] },
       { fields: ["location"] },
       { fields: ["employment_type"] },
+      { fields: ["work_style"] },
+      { fields: ["experience_level"] },
       { fields: ["featured"] }
     ]
   }
