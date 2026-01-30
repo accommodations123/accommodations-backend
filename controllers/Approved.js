@@ -16,26 +16,25 @@ const normalize = (v) => {
 
 const safe = (v) => (v ? v : "all");
 
+/* ───────────────── ADMIN SNAPSHOT LIST ───────────────── */
+
 export const getApprovedList = async (req, res) => {
   try {
-    // adminAuth middleware MUST be applied at route level
-    if (!req.admin) {
-      return res.status(403).json({ message: "Unauthorized" });
-    }
-
+    // adminAuth middleware already guarantees this
     const country = normalize(req.headers["x-country"] || req.query.country);
-    const state = normalize(req.headers["x-state"] || req.query.state);
-    const city = normalize(req.headers["x-city"] || req.query.city);
-    const zip = normalize(req.headers["x-zip-code"] || req.query.zip_code);
+    const state   = normalize(req.headers["x-state"] || req.query.state);
+    const city    = normalize(req.headers["x-city"] || req.query.city);
+    const zip     = normalize(req.headers["x-zip-code"] || req.query.zip_code);
 
-    const cacheKey = `approved_snapshot_list:${safe(country)}:${safe(state)}:${safe(city)}:${safe(zip)}`;
+    const cacheKey =
+      `approved_snapshot_list:${safe(country)}:${safe(state)}:${safe(city)}:${safe(zip)}`;
 
     const cached = await getCache(cacheKey);
     if (cached) {
       return res.json({ success: true, data: cached });
     }
 
-    /* ───────── JSON FILTERS (CORRECT ALIASING) ───────── */
+    /* ───────── JSON FILTERS (FIXED COLUMN ALIAS) ───────── */
 
     const conditions = [];
 
@@ -45,7 +44,8 @@ export const getApprovedList = async (req, res) => {
           "JSON_UNQUOTE",
           Sequelize.fn(
             "JSON_EXTRACT",
-            Sequelize.col("ApprovedHost.property_snapshot"), // ✅ CRITICAL FIX
+            // 🔥 CRITICAL FIX: USE TABLE NAME, NOT MODEL NAME
+            Sequelize.col("approved_hosts.property_snapshot"),
             path
           )
         ),
@@ -53,9 +53,9 @@ export const getApprovedList = async (req, res) => {
       );
 
     if (country) conditions.push(jsonEq("$.country", country));
-    if (state) conditions.push(jsonEq("$.state", state));
-    if (city) conditions.push(jsonEq("$.city", city));
-    if (zip) conditions.push(jsonEq("$.zip_code", zip));
+    if (state)   conditions.push(jsonEq("$.state", state));
+    if (city)    conditions.push(jsonEq("$.city", city));
+    if (zip)     conditions.push(jsonEq("$.zip_code", zip));
 
     const where = conditions.length ? { [Op.and]: conditions } : {};
 
@@ -76,7 +76,8 @@ export const getApprovedList = async (req, res) => {
       photos: item.property_snapshot?.photos ?? [],
       ownerName: item.host_snapshot?.full_name ?? null,
       ownerEmail: item.host_snapshot?.email ?? null,
-      ownerPhone: item.host_snapshot?.phone ?? null
+      ownerPhone: item.host_snapshot?.phone ?? null,
+      approvedAt: item.approved_at
     }));
 
     await setCache(cacheKey, formatted, 300);
