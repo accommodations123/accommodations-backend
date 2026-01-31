@@ -671,3 +671,88 @@ export const getSuspendedCommunities = async (req, res) => {
 
   res.json({ success: true, communities });
 };
+
+
+
+/* =====================================================
+   GET COMMUNITY HOST MEMBERS
+===================================================== */
+export const getCommunityHosts = async (req, res) => {
+  const communityId = Number(req.params.id);
+
+  if (!Number.isInteger(communityId)) {
+    return res.status(400).json({ message: "Invalid community id" });
+  }
+
+  const page = Math.max(1, Number(req.query.page || 1));
+  const limit = Math.min(20, Number(req.query.limit || 10));
+  const offset = (page - 1) * limit;
+
+  try {
+    /* =========================
+       1️⃣ COMMUNITY EXISTS
+       ========================= */
+    const community = await Community.findByPk(communityId, {
+      attributes: ["id", "status"]
+    });
+
+    if (!community || community.status !== "active") {
+      return res.status(404).json({
+        message: "Community not found or inactive"
+      });
+    }
+
+    /* =========================
+       2️⃣ FETCH HOST MEMBERS
+       ========================= */
+    const { rows, count } = await CommunityMember.findAndCountAll({
+      where: {
+        community_id: communityId,
+        is_host: true
+      },
+      attributes: ["user_id"],
+      include: [
+        {
+          model: Host,
+          required: true,
+          where: { status: "approved" },
+          attributes: ["full_name", "country", "state", "city"],
+          include: [
+            {
+              model: User,
+              attributes: ["profile_image"]
+            }
+          ]
+        }
+      ],
+      limit,
+      offset,
+      order: [["id", "DESC"]]
+    });
+
+    /* =========================
+       3️⃣ SHAPE RESPONSE
+       ========================= */
+    const hosts = rows.map(row => ({
+      user_id: row.user_id,
+      full_name: row.Host.full_name,
+      profile_image: row.Host.User?.profile_image || null,
+      country: row.Host.country,
+      state: row.Host.state,
+      city: row.Host.city
+    }));
+
+    return res.json({
+      success: true,
+      count,
+      page,
+      hosts
+    });
+
+  } catch (err) {
+    console.error("GET COMMUNITY HOSTS ERROR:", err);
+    return res.status(500).json({
+      message: "Failed to fetch community hosts"
+    });
+  }
+};

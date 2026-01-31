@@ -6,6 +6,7 @@ import {
   getCommunityById,
   joinCommunity,
   leaveCommunity,
+  getCommunityHosts,
   listCommunities,
   getNearbyEvents,
   getPendingCommunities,
@@ -29,6 +30,7 @@ router.get("/", listCommunities);
 router.get("/:id",optionalAuth, getCommunityById);
 router.post("/:id/join", userAuth,optionalAuth, joinCommunity);
 router.post("/:id/leave", userAuth,optionalAuth, leaveCommunity);
+router.get("/:id/hosts", optionalAuth, getCommunityHosts);
 router.get("/:id/nearby-events", getNearbyEvents);
 
 
