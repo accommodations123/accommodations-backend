@@ -532,14 +532,15 @@ export const getReceivedMatchRequests = async (req, res) => {
 
     // 1️⃣ Resolve host
     const host = await Host.findOne({
-      where: { user_id: userId }
+      where: { user_id: userId },
+      attributes: ["id"]
     });
 
     if (!host) {
       return res.json({ success: true, requests: [] });
     }
 
-    const cacheKey = `travel:matches:received:${host.id}`;
+    const cacheKey = `travel:matches:received:v3:${host.id}`;
 
     // 2️⃣ Cache
     const cached = await getCache(cacheKey);
@@ -551,77 +552,70 @@ export const getReceivedMatchRequests = async (req, res) => {
       });
     }
 
-    // 3️⃣ DB query
-    let matches = await TravelMatch.findAll({
-      where: { status: "pending" },
+    // 3️⃣ DB Query (pending + accepted only)
+    const matches = await TravelMatch.findAll({
+      where: {
+        status: { [Op.in]: ["pending", "accepted"] }
+      },
+      order: [["created_at", "DESC"]],
       include: [
         {
           model: TravelTrip,
           as: "receiverTrip",
           where: { host_id: host.id },
-          attributes: [
-            "id",
-            "from_country",
-            "from_city",
-            "to_country",
-            "to_city",
-            "travel_date"
-          ]
+          attributes: ["id"]
         },
         {
           model: TravelTrip,
           as: "requesterTrip",
-          attributes: [
-            "id",
-            "host_id", // ✅ REQUIRED FOR SELF-FILTER
-            "from_country",
-            "from_city",
-            "to_country",
-            "to_city",
-            "travel_date"
-          ],
+          attributes: ["id", "host_id"],
           include: [
             {
               model: Host,
               as: "host",
-              attributes: ["full_name", "country", "city"],
+              attributes: ["full_name", "country", "city", "whatsapp", "phone"],
               include: [
                 {
                   model: User,
-                  attributes: ["profile_image"]
+                  attributes: ["profile_image", "email"]
                 }
               ]
             }
           ]
         }
-      ],
-      order: [["created_at", "DESC"]]
+      ]
     });
 
-    // 🚫 REMOVE SELF-REQUESTS
-    matches = matches.filter(
-      m => m.requesterTrip.host_id !== host.id
-    );
+    // 4️⃣ Shape response (EXPLICIT CONTRACT)
+    const requests = matches.map(m => {
+      const isAccepted = m.status === "accepted" && m.consent_given === true;
 
-    // 4️⃣ Shape response
-    const requests = matches.map(m => ({
-      match_id: m.id,
-      status: m.status,
-      requested_at: m.created_at,
-      receiver_trip: m.receiverTrip,
-      requester_trip: {
-        ...m.requesterTrip.toJSON(),
-        host: {
+      return {
+        match_id: m.id,
+
+        // 🔥 REQUIRED FOR ACTIONS
+        trip_id: m.trip_id,
+        matched_trip_id: m.matched_trip_id,
+
+        status: m.status,
+        requested_at: m.created_at,
+
+        requester: {
           full_name: m.requesterTrip.host.full_name,
           country: m.requesterTrip.host.country,
           city: m.requesterTrip.host.city,
           profile_image:
-            m.requesterTrip.host.User?.profile_image || null
-        }
-      }
-    }));
+            m.requesterTrip.host.User?.profile_image || null,
 
-    // 5️⃣ Cache
+          // 🔐 Privacy gate
+          whatsapp: isAccepted ? m.requesterTrip.host.whatsapp : null,
+          phone: isAccepted ? m.requesterTrip.host.phone : null,
+          email: isAccepted ? m.requesterTrip.host.User?.email : null
+        }
+      };
+    });
+
+    // 5️⃣ Cache short-lived
     await setCache(cacheKey, requests, 60);
 
     return res.json({
@@ -631,10 +625,11 @@ export const getReceivedMatchRequests = async (req, res) => {
     });
 
   } catch (err) {
-    console.error(err);
+    console.error("getReceivedMatchRequests error:", err);
     return res.status(500).json({ message: "Server error" });
   }
 };
+
 
 
 /* ======================================================
