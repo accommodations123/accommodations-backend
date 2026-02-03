@@ -36,6 +36,7 @@ import buySellAnalytics from "./routes/DashboardAnalytics/buySellAnalyticsroutes
 import communityAnalytics from "./routes/DashboardAnalytics/communityAnalytics.routes.js";
 import travelAnalytics from "./routes/DashboardAnalytics/travelAnalytics.routes.js";
 import carreranalyticsRoutes from "./routes/DashboardAnalytics/carrer.routes.js";
+import useanalytics from './routes/DashboardAnalytics/useranalytics.routes.js'
 import notificationRoutes from "./routes/notification.routes.js";
 
 /* ===================== WORKERS ===================== */
@@ -120,6 +121,7 @@ app.use("/buysellanalytics", buySellAnalytics);
 app.use("/communityanalytics", communityAnalytics);
 app.use("/travelanalytics", travelAnalytics);
 app.use("/carreranalytics",carreranalyticsRoutes)
+app.use("/users",useanalytics)
 app.use("/notification", notificationRoutes);
 
 /* ===================== HEALTH ===================== */
