@@ -59,7 +59,14 @@ const AnalyticsEvent = sequelize.define(
   {
     tableName: "analytics_events",
     timestamps: false,
-    underscored: true
+    underscored: true,
+    indexes: [
+      { fields: ["event_type"] },
+      { fields: ["created_at"] },
+      { fields: ["event_type", "created_at"] },
+      { fields: ["event_id"] },
+      { fields: ["user_id"] }
+    ]
   }
 );
 

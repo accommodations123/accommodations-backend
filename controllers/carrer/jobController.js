@@ -1,5 +1,7 @@
 import Job from "../../model/carrer/Job.js";
 import sequelize from "../../config/db.js";
+import { trackEvent } from "../../services/Analytics.js";
+import { logAudit } from "../../services/auditLogger.js";
 import { Op } from "sequelize";
 
 const ALLOWED_FILTERS = [
@@ -88,10 +90,30 @@ export const createJob = async (req, res) => {
       );
     });
 
+    /* 📊 ANALYTICS */
+    trackEvent({
+      event_type: "JOB_CREATED",
+      actor: { user_id: req.admin.id },
+      entity: { type: "job", id: job.id },
+      metadata: {
+        department: job.department,
+        employment_type: job.employment_type
+      }
+    }).catch(console.error);
+
+    /* 🔒 AUDIT */
+    logAudit({
+      action: "JOB_CREATED",
+      actor: { admin_id: req.admin.id },
+      target: { type: "job", id: job.id },
+      severity: "LOW",
+      req
+    }).catch(console.error);
     return res.status(201).json({
       success: true,
       job
     });
+
 
   } catch (err) {
     console.error("CREATE JOB ERROR:", err);
@@ -105,13 +127,20 @@ export const createJob = async (req, res) => {
 
 
 export const getMyJobs = async (req, res) => {
-  if (!req.admin) {
-    return res.status(403).json({ message: "Unauthorized" });
-  }
   try {
-    const jobs = await Job.findAll({
-      where: { created_by: req.admin.id },
-      order: [["created_at", "DESC"]],
+    if (!req.admin) {
+      return res.status(403).json({ message: "Unauthorized" });
+    }
+
+    const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+    const limit = Math.min(parseInt(req.query.limit, 10) || 20, 50);
+    const offset = (page - 1) * limit;
+
+    const { rows: jobs, count } = await Job.findAndCountAll({
+      where: {
+        created_by: req.admin.id,
+        status: { [Op.ne]: "deleted" }
+      },
       attributes: [
         "id",
         "title",
@@ -122,11 +151,23 @@ export const getMyJobs = async (req, res) => {
         "experience_level",
         "status",
         "applications_count",
+        "views_count",
         "created_at"
-      ]
+      ],
+      order: [["created_at", "DESC"]],
+      limit,
+      offset
     });
 
-    res.json({ success: true, jobs });
+    return res.json({
+      success: true,
+      page,
+      limit,
+      total: count,
+      hasMore: offset + jobs.length < count,
+      jobs
+    });
+
   } catch (err) {
     console.error("GET MY JOBS ERROR:", err);
     return res.status(500).json({
@@ -139,20 +180,26 @@ export const getMyJobs = async (req, res) => {
 
 
 
+
 export const getJobs = async (req, res) => {
   try {
     const where = { status: "active" };
 
-    ALLOWED_FILTERS.forEach((key) => {
+    // Whitelisted filters only
+    for (const key of ALLOWED_FILTERS) {
       if (req.query[key]) {
         where[key] = req.query[key];
       }
-    });
+    }
 
-    // Partial location match (real-world friendly)
-    if (req.query.location) {
+    // Safe partial location search (MySQL)
+    if (
+      req.query.location &&
+      typeof req.query.location === "string" &&
+      req.query.location.length <= 50
+    ) {
       where.location = {
-        [Op.iLike]: `%${req.query.location}%`
+        [Op.like]: `%${req.query.location}%`
       };
     }
 
@@ -185,6 +232,7 @@ export const getJobs = async (req, res) => {
 };
 
 
+
 export const getJobById = async (req, res) => {
   try {
     const job = await Job.findOne({
@@ -198,20 +246,31 @@ export const getJobById = async (req, res) => {
       return res.status(404).json({ message: "Job not found" });
     }
 
-    // Count views only for public users
+    // Track views only for non-admins
     if (!req.admin) {
+      trackEvent({
+        event_type: "JOB_VIEWED",
+        actor: req.user ? { user_id: req.user.id } : {},
+        entity: { type: "job", id: job.id }
+      }).catch(() => { });
+
+      // Non-blocking increment (acceptable for analytics)
       job.increment("views_count").catch(() => { });
     }
 
-    return res.json({ success: true, job });
+    return res.json({
+      success: true,
+      job
+    });
 
   } catch (err) {
-    console.error("GET JOB ERROR:", err);
+    console.error("GET JOB BY ID ERROR:", err);
     return res.status(500).json({
       message: "Failed to fetch job"
     });
   }
 };
+
 
 
 

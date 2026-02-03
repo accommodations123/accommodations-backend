@@ -1,103 +1,127 @@
 import sequelize from "../../config/db.js";
-import Application from "../../model/carrer/Application.js";
-import ApplicationStatusHistory from '../../model/carrer/ApplicationStatusHistory.js'
+import { Sequelize } from "sequelize";
+
 import Job from "../../model/carrer/Job.js";
+import Application from "../../model/carrer/Application.js";
+import ApplicationStatusHistory from "../../model/carrer/ApplicationStatusHistory.js";
 import User from "../../model/User.js";
 import Notification from "../../model/Notification.js";
+
+import { trackEvent } from "../../services/Analytics.js";
+import { logAudit } from "../../services/auditLogger.js";
 import { notifyAndEmail } from "../../services/notificationDispatcher.js";
 const VALID_STATUSES = [
-  "new",
+  "submitted",
+  "viewed",
   "reviewing",
   "interview",
   "offer",
   "rejected"
 ];
+const STATUS_TRANSITIONS = {
+  submitted: ["viewed"],
+  viewed: ["reviewing", "rejected"],
+  reviewing: ["interview", "rejected"],
+  interview: ["offer", "rejected"],
+  offer: [],
+  rejected: []
+};
+
+/* ================= APPLY JOB ================= */
 
 export const applyJob = async (req, res) => {
-  const transaction = await sequelize.transaction();
-
   try {
-    const {
-      job_id,
-      first_name,
-      last_name,
-      email,
-      phone,
-      linkedin_url,
-      portfolio_url,
-      experience
-    } = req.body;
-
-    if (!job_id || !first_name || !last_name || !email) {
-      return res.status(400).json({ message: "Missing required fields" });
+    if (!req.user) {
+      return res.status(401).json({ message: "Login required" });
     }
 
-    const job = await Job.findOne({
-      where: { id: job_id, status: "active" },
-      transaction
-    });
-
-    if (!job) {
-      return res.status(404).json({ message: "Job not available" });
-    }
-
-    // Prevent duplicate application per user per job
-    if (req.user?.id) {
-      const exists = await Application.findOne({
-        where: { job_id, user_id: req.user.id },
-        transaction
-      });
-
-      if (exists) {
-        return res.status(409).json({ message: "Already applied to this job" });
-      }
-    }
-
-    const application = await Application.create(
-      {
+    const application = await sequelize.transaction(async (t) => {
+      const {
         job_id,
-        user_id: req.user?.id || null,
         first_name,
         last_name,
         email,
         phone,
         linkedin_url,
         portfolio_url,
-        experience: experience || [],
-        resume_url: req.file?.location || null,
-        status: "submitted"
-      },
-      { transaction }
-    );
+        experience
+      } = req.body;
 
-    await job.increment("applications_count", { transaction });
+      if (!job_id || !first_name || !last_name || !email) {
+        throw { status: 400, message: "Missing required fields" };
+      }
 
-    await transaction.commit();
+      const job = await Job.findOne({
+        where: { id: job_id, status: "active" },
+        transaction: t,
+        lock: t.LOCK.UPDATE
+      });
 
-    return res.status(201).json({
-      success: true,
-      application
+      if (!job) {
+        throw { status: 404, message: "Job not available" };
+      }
+
+      let app;
+      try {
+        app = await Application.create(
+          {
+            job_id,
+            user_id: req.user.id,
+            first_name,
+            last_name,
+            email,
+            phone,
+            linkedin_url,
+            portfolio_url,
+            experience: experience || [],
+            resume_url: req.file?.location || null,
+            status: "submitted"
+          },
+          { transaction: t }
+        );
+      } catch (err) {
+        if (err instanceof Sequelize.UniqueConstraintError) {
+          throw { status: 409, message: "Already applied to this job" };
+        }
+        throw err;
+      }
+
+      await job.increment("applications_count", { transaction: t });
+
+      return app;
     });
 
+    trackEvent({
+      event_type: "JOB_APPLICATION_SUBMITTED",
+      actor: { user_id: req.user.id },
+      entity: { type: "job", id: application.job_id },
+      metadata: { application_id: application.id }
+    }).catch(console.error);
+
+    return res.status(201).json({ success: true, application });
+
   } catch (err) {
-    await transaction.rollback();
-    console.error("APPLY JOB ERROR:", err);
-    return res.status(500).json({ message: "Failed to apply for job" });
+    return res.status(err.status || 500).json({
+      message: err.message || "Failed to apply for job"
+    });
   }
 };
 
 
-
 export const getMyApplications = async (req, res) => {
   try {
-    const userId = req.user.id;
+    if (!req.user) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
 
-    const page = Number(req.query.page || 1);
-    const limit = Math.min(Number(req.query.limit || 10), 50);
+    const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+    const limit = Math.min(parseInt(req.query.limit, 10) || 10, 50);
     const offset = (page - 1) * limit;
 
-    const applications = await Application.findAll({
-      where: { user_id: userId },
+    const { rows, count } = await Application.findAndCountAll({
+      where: {
+        user_id: req.user.id
+      },
       attributes: [
         "id",
         "status",
@@ -126,7 +150,9 @@ export const getMyApplications = async (req, res) => {
       success: true,
       page,
       limit,
-      applications
+      total: count,
+      hasMore: offset + rows.length < count,
+      applications: rows
     });
 
   } catch (err) {
@@ -136,7 +162,10 @@ export const getMyApplications = async (req, res) => {
     });
   }
 };
+
 export const updateJobStatus = async (req, res) => {
+  if (!req.admin) return res.status(403).json({ message: "Unauthorized" });
+
   const { status } = req.body;
   const allowed = ["draft", "active", "closed"];
 
@@ -145,174 +174,253 @@ export const updateJobStatus = async (req, res) => {
   }
 
   const job = await Job.findByPk(req.params.id);
-  if (!job) {
-    return res.status(404).json({ message: "Job not found" });
-  }
+  if (!job) return res.status(404).json({ message: "Job not found" });
 
+  const prev = job.status;
   job.status = status;
   await job.save();
 
-  res.json({ success: true, job });
+  trackEvent({
+    event_type: "JOB_STATUS_CHANGED",
+    actor: { user_id: req.admin.id },
+    entity: { type: "job", id: job.id },
+    metadata: { from: prev, to: status }
+  }).catch(console.error);
+
+  logAudit({
+    action: "JOB_STATUS_CHANGED",
+    actor: { admin_id: req.admin.id },
+    target: { type: "job", id: job.id },
+    severity: "MEDIUM",
+    req,
+    metadata: { from: prev, to: status }
+  }).catch(console.error);
+
+  return res.json({ success: true, job });
 };
 
 
+
+/* =====================================================
+   UPDATE APPLICATION STATUS (FSM + ATOMIC)
+   ===================================================== */
+/* ================= UPDATE APPLICATION STATUS ================= */
 
 export const updateApplicationStatus = async (req, res) => {
-  try {
-    const { status } = req.body;
-
-    if (!VALID_STATUSES.includes(status)) {
-      return res.status(400).json({ message: "Invalid status" });
-    }
-
-    const application = await Application.findByPk(req.params.id);
-
-    if (!application) {
-      return res.status(404).json({ message: "Application not found" });
-    }
-
-    if (application.status === status) {
-      return res.status(400).json({ message: "Status already set" });
-    }
-
-    application.status = status;
-    await application.save();
-
-    // NOTE: status history + email trigger should go here
-
-    return res.json({ success: true });
-
-  } catch (err) {
-    console.error("UPDATE STATUS ERROR:", err);
-    return res.status(500).json({ message: "Failed to update status" });
-  }
-};
-
-export const getAllApplications = async (req, res) => {
-  const applications = await Application.findAll({
-    order: [["created_at", "DESC"]],
-    include: [
-      {
-        model: Job,
-        as: "job",
-        attributes: ["id", "title"]
-      },
-      {
-        model: User,
-        as: "user",
-        attributes: ["id", "email"]
-      }
-    ]
-  });
-
-  res.json({ success: true, applications });
-};
-
-
-export const getAdminApplicationById = async (req, res) => {
-  const application = await Application.findByPk(req.params.id, {
-    include: [
-      {
-        model: Job,
-        as: "job",
-        attributes: ["id", "title"]
-      }
-    ]
-  });
-
-  if (!application) {
-    return res.status(404).json({ message: "Application not found" });
+  if (!req.admin) {
+    return res.status(403).json({ message: "Unauthorized" });
   }
 
-  // FIRST VIEW LOGIC
- if (application.status === "submitted") {
-  await application.update({
-    status: "viewed",
-    last_viewed_at: new Date(),
-    viewed_by_admin: req.admin.id,
-    status_updated_at: new Date()
-  });
+  const { status } = req.body;
+  if (!VALID_STATUSES.includes(status)) {
+    return res.status(400).json({ message: "Invalid status" });
+  }
 
-  await ApplicationStatusHistory.create({
-    application_id: application.id,
-    from_status: "submitted",
-    to_status: "viewed",
-    acted_by_id: req.admin.id,
-    acted_by_role: "admin"
-  });
-
-  // 🔔 USER NOTIFICATION
-  await Notification.create({
-    user_id: application.user_id,
-    type: "application_viewed",
-    title: "Your application was viewed",
-    message: `Your application for "${application.job.title}" has been reviewed by our team.`,
-    meta: {
-      application_id: application.id,
-      job_id: application.job_id
-    }
-  });
-}
-
-
-  return res.json({
-    success: true,
-    application
-  });
-};
-
-
-
-
-export const notifyApplicationUser = async (req, res) => {
-  try {
-    const { subject, message, template, status } = req.body;
-
-    if (!subject || !message) {
-      return res.status(400).json({ message: "Subject and message required" });
-    }
-
+  await sequelize.transaction(async (t) => {
     const application = await Application.findByPk(req.params.id, {
-      include: [{ model: User, as: "user" }]
+      transaction: t,
+      lock: t.LOCK.UPDATE
     });
 
     if (!application) {
-      return res.status(404).json({ message: "Application not found" });
+      throw { status: 404, message: "Application not found" };
     }
 
-    if (!application.user) {
-      return res.status(400).json({ message: "Application has no user" });
+    const prev = application.status;
+
+    if (prev === status) {
+      throw { status: 400, message: "Status already set" };
     }
 
-    // Optional: update status if provided
-    if (status && application.status !== status) {
-      application.status = status;
-      application.status_updated_at = new Date();
-      await application.save();
+    if (!STATUS_TRANSITIONS[prev]?.includes(status)) {
+      throw {
+        status: 400,
+        message: `Invalid transition from ${prev} to ${status}`
+      };
     }
 
-    // 🔔 ONE CALL DOES EVERYTHING
-    await notifyAndEmail({
-      userId: application.user.id,
-      email: application.user.email,
-      type: "APPLICATION_UPDATE",
-      title: subject,
-      message,
-      metadata: {
-        applicationId: application.id,
-        jobId: application.job_id,
-        status: application.status,
-        template
-      }
+    await application.update({ status }, { transaction: t });
+
+    await ApplicationStatusHistory.create(
+      {
+        application_id: application.id,
+        from_status: prev,
+        to_status: status,
+        acted_by_id: req.admin.id,
+        acted_by_role: "admin"
+      },
+      { transaction: t }
+    );
+
+    trackEvent({
+      event_type: "APPLICATION_STATUS_CHANGED",
+      actor: { admin_id: req.admin.id },
+      entity: { type: "application", id: application.id },
+      metadata: { from: prev, to: status }
+    }).catch(console.error);
+
+    logAudit({
+      action: "APPLICATION_STATUS_CHANGED",
+      actor: { admin_id: req.admin.id },
+      target: { type: "application", id: application.id },
+      severity: "MEDIUM",
+      req,
+      metadata: { from: prev, to: status }
+    }).catch(console.error);
+  });
+
+  return res.json({ success: true });
+};
+
+
+
+
+export const getAllApplications = async (req, res) => {
+  try {
+    if (!req.admin) {
+      return res.status(403).json({ message: "Unauthorized" });
+    }
+
+    const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+    const limit = Math.min(parseInt(req.query.limit, 10) || 20, 100);
+    const offset = (page - 1) * limit;
+
+    const { rows, count } = await Application.findAndCountAll({
+      attributes: [
+        "id",
+        "status",
+        "created_at",
+        "job_id",
+        "user_id"
+      ],
+      include: [
+        {
+          model: Job,
+          as: "job",
+          attributes: ["id", "title"]
+        },
+        {
+          model: User,
+          as: "user",
+          attributes: ["id", "email"]
+        }
+      ],
+      order: [["created_at", "DESC"]],
+      limit,
+      offset
     });
 
     return res.json({
       success: true,
-      message: "Notification and email sent successfully"
+      page,
+      limit,
+      total: count,
+      hasMore: offset + rows.length < count,
+      applications: rows
     });
 
   } catch (err) {
-    console.error("APPLICATION NOTIFY ERROR:", err);
-    return res.status(500).json({ message: "Failed to send notification" });
+    console.error("GET ALL APPLICATIONS ERROR:", err);
+    return res.status(500).json({
+      message: "Failed to fetch applications"
+    });
   }
+};
+
+
+
+/* ================= ADMIN VIEW APPLICATION ================= */
+
+export const getAdminApplicationById = async (req, res) => {
+  if (!req.admin) {
+    return res.status(403).json({ message: "Unauthorized" });
+  }
+
+  let application;
+
+  await sequelize.transaction(async (t) => {
+    application = await Application.findByPk(req.params.id, {
+      transaction: t,
+      lock: t.LOCK.UPDATE,
+      include: [{ model: Job, as: "job", attributes: ["id", "title"] }]
+    });
+
+    if (!application) {
+      throw { status: 404, message: "Application not found" };
+    }
+
+    if (application.status === "submitted") {
+      await application.update(
+        {
+          status: "viewed",
+          viewed_by_admin: req.admin.id,
+          last_viewed_at: new Date()
+        },
+        { transaction: t }
+      );
+
+      await ApplicationStatusHistory.create(
+        {
+          application_id: application.id,
+          from_status: "submitted",
+          to_status: "viewed",
+          acted_by_id: req.admin.id,
+          acted_by_role: "admin"
+        },
+        { transaction: t }
+      );
+
+      await Notification.create(
+        {
+          user_id: application.user_id,
+          type: "application_viewed",
+          title: "Application viewed",
+          message: `Your application for "${application.job.title}" was reviewed`
+        },
+        { transaction: t }
+      );
+    }
+  });
+
+  return res.json({ success: true, application });
+};
+
+
+
+
+/* ================= NOTIFY USER (NO STATUS CHANGE) ================= */
+
+export const notifyApplicationUser = async (req, res) => {
+  if (!req.admin) {
+    return res.status(403).json({ message: "Unauthorized" });
+  }
+
+  const { subject, message, template } = req.body;
+  if (!subject || !message) {
+    return res.status(400).json({ message: "Subject and message required" });
+  }
+
+  const application = await Application.findByPk(req.params.id, {
+    include: [{ model: User, as: "user" }]
+  });
+
+  if (!application || !application.user) {
+    return res.status(404).json({ message: "Application/User not found" });
+  }
+
+  await notifyAndEmail({
+    userId: application.user.id,
+    email: application.user.email,
+    type: "APPLICATION_UPDATE",
+    title: subject,
+    message,
+    metadata: {
+      applicationId: application.id,
+      jobId: application.job_id,
+      status: application.status,
+      template
+    }
+  });
+
+  return res.json({ success: true });
 };
