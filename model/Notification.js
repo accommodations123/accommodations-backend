@@ -48,6 +48,10 @@ const Notification = sequelize.define(
     is_read: {
       type: DataTypes.BOOLEAN,
       defaultValue: false
+    },
+     is_deleted: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false
     }
   },
   {

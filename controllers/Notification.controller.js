@@ -63,3 +63,47 @@ export const markAllNotificationsRead = async (req, res) => {
     return res.status(500).json({ message: "Server error" });
   }
 };
+
+
+export const deleteNotification = async (req, res) => {
+  try {
+    const notification = await Notification.findOne({
+      where: {
+        id: req.params.id,
+        user_id: req.user.id,
+        is_deleted: false
+      }
+    });
+
+    if (!notification) {
+      return res.status(404).json({ message: "Notification not found" });
+    }
+
+    notification.is_deleted = true;
+    await notification.save();
+
+    return res.json({ success: true });
+  } catch (err) {
+    console.error("DELETE NOTIFICATION ERROR:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+export const deleteAllNotifications = async (req, res) => {
+  try {
+    await Notification.update(
+      { is_deleted: true },
+      {
+        where: {
+          user_id: req.user.id,
+          is_deleted: false
+        }
+      }
+    );
+
+    return res.json({ success: true });
+  } catch (err) {
+    console.error("DELETE ALL NOTIFICATIONS ERROR:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
