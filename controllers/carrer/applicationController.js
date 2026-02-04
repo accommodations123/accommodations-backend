@@ -390,37 +390,59 @@ export const getAdminApplicationById = async (req, res) => {
 
 /* ================= NOTIFY USER (NO STATUS CHANGE) ================= */
 
+// controllers/application.controller.js
+
 export const notifyApplicationUser = async (req, res) => {
-  if (!req.admin) {
-    return res.status(403).json({ message: "Unauthorized" });
-  }
-
-  const { subject, message, template } = req.body;
-  if (!subject || !message) {
-    return res.status(400).json({ message: "Subject and message required" });
-  }
-
-  const application = await Application.findByPk(req.params.id, {
-    include: [{ model: User, as: "user" }]
-  });
-
-  if (!application || !application.user) {
-    return res.status(404).json({ message: "Application/User not found" });
-  }
-
-  await notifyAndEmail({
-    userId: application.user.id,
-    email: application.user.email,
-    type: "APPLICATION_UPDATE",
-    title: subject,
-    message,
-    metadata: {
-      applicationId: application.id,
-      jobId: application.job_id,
-      status: application.status,
-      template
+  try {
+    if (!req.admin) {
+      return res.status(403).json({ message: "Unauthorized" });
     }
-  });
 
-  return res.json({ success: true });
+    const { subject, message, template } = req.body;
+
+    if (!subject || !message) {
+      return res.status(400).json({
+        message: "Subject and message required"
+      });
+    }
+
+    const application = await Application.findByPk(req.params.id, {
+      include: [{ model: User, as: "user" }]
+    });
+
+    if (!application || !application.user) {
+      return res.status(404).json({
+        message: "Application/User not found"
+      });
+    }
+
+    // 🔔 ONE SINGLE SOURCE OF TRUTH
+    await notifyAndEmail({
+      userId: application.user.id,
+      email: application.user.email,
+      type: "APPLICATION_UPDATE",
+      title: subject,
+      message,
+      metadata: {
+        subject,                 // ✅ REQUIRED
+        message,                 // ✅ REQUIRED
+        applicationId: application.id,
+        jobId: application.job_id,
+        status: application.status,
+        template
+      }
+    });
+
+    return res.json({
+      success: true,
+      message: "Notification and email sent"
+    });
+
+  } catch (err) {
+    console.error("NOTIFY APPLICATION ERROR:", err);
+    return res.status(500).json({
+      message: "Failed to notify applicant"
+    });
+  }
 };
+

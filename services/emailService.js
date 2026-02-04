@@ -35,7 +35,9 @@ export const NOTIFICATION_TYPES = {
   COMMUNITY_SUSPENDED: "COMMUNITY_SUSPENDED",
 
   TRAVEL_MATCH_CANCELLED: "TRAVEL_MATCH_CANCELLED",
-  TRAVEL_TRIP_CANCELLED: "TRAVEL_TRIP_CANCELLED"
+  TRAVEL_TRIP_CANCELLED: "TRAVEL_TRIP_CANCELLED",
+  APPLICATION_UPDATE: "APPLICATION_UPDATE",
+
 };
 
 /**
@@ -238,6 +240,27 @@ const templates = {
       </div>
     `
   }),
+  APPLICATION_UPDATE: (d) => ({
+  subject: d.subject || "Application Update",
+  html: `
+    <div style="font-family: Arial, sans-serif;">
+      <h2>Application Status Update</h2>
+      <p>${d.message}</p>
+
+      <p>
+        <strong>Status:</strong> ${d.status}
+      </p>
+
+      <p>
+        Job ID: ${d.jobId}<br/>
+        Application ID: ${d.applicationId}
+      </p>
+
+      <p style="color:#777;">— Accommodations Team</p>
+    </div>
+  `
+}),
+
 };
 
 
