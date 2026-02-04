@@ -34,6 +34,9 @@ export const NOTIFICATION_TYPES = {
   COMMUNITY_REJECTED: "COMMUNITY_REJECTED",
   COMMUNITY_SUSPENDED: "COMMUNITY_SUSPENDED",
 
+  TRAVEL_MATCH_REQUESTED: "TRAVEL_MATCH_REQUESTED",
+  TRAVEL_MATCH_ACCEPTED: "TRAVEL_MATCH_ACCEPTED",
+  TRAVEL_MATCH_REJECTED: "TRAVEL_MATCH_REJECTED",
   TRAVEL_MATCH_CANCELLED: "TRAVEL_MATCH_CANCELLED",
   TRAVEL_TRIP_CANCELLED: "TRAVEL_TRIP_CANCELLED",
   APPLICATION_UPDATE: "APPLICATION_UPDATE",
@@ -214,6 +217,32 @@ const templates = {
       </div>
     `
   }),
+  [NOTIFICATION_TYPES.TRAVEL_MATCH_REQUESTED]: () => ({
+    subject: "New Travel Match Request",
+    html: `
+    <h2>New Travel Match Request</h2>
+    <p>You have received a new travel match request.</p>
+    <p>Please log in to review and respond.</p>
+  `
+  }),
+
+  [NOTIFICATION_TYPES.TRAVEL_MATCH_ACCEPTED]: () => ({
+    subject: "Travel Match Accepted",
+    html: `
+    <h2>Match Accepted</h2>
+    <p>Your travel match request has been accepted.</p>
+    <p>You can now contact your travel partner.</p>
+  `
+  }),
+
+  [NOTIFICATION_TYPES.TRAVEL_MATCH_REJECTED]: () => ({
+    subject: "Travel Match Rejected",
+    html: `
+    <h2>Match Rejected</h2>
+    <p>Your travel match request was rejected.</p>
+  `
+  }),
+
 
   [NOTIFICATION_TYPES.TRAVEL_MATCH_CANCELLED]: () => ({
     subject: "Travel Match Cancelled",
@@ -241,8 +270,8 @@ const templates = {
     `
   }),
   APPLICATION_UPDATE: (d) => ({
-  subject: d.subject || "Application Update",
-  html: `
+    subject: d.subject || "Application Update",
+    html: `
     <div style="font-family: Arial, sans-serif;">
       <h2>Application Status Update</h2>
       <p>${d.message}</p>
@@ -259,7 +288,7 @@ const templates = {
       <p style="color:#777;">— Accommodations Team</p>
     </div>
   `
-}),
+  }),
 
 };
 
