@@ -9,6 +9,7 @@ import redis from "../config/redis.js";
 import { RateLimiterRedis, RateLimiterMemory } from "rate-limiter-flexible";
 import { getCache, setCache, deleteCache } from "../services/cacheService.js";
 import { logAudit } from "../services/auditLogger.js";
+import AnalyticsEvent from "../model/DashboardAnalytics/AnalyticsEvent.js";
 // OTP RATE LIMITER
 let otpLimiter;
 
@@ -57,7 +58,6 @@ export const sendOTP = async (req, res) => {
 
     email = email.trim().toLowerCase();
 
-    // basic sanity check (not full RFC)
     if (!/^\S+@\S+\.\S+$/.test(email)) {
       return res.status(400).json({ message: "Invalid email format" });
     }
@@ -75,22 +75,28 @@ export const sendOTP = async (req, res) => {
     const otp = generateOTP();
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
 
-    const user = await User.findOne({ where: { email } });
+    let user = await User.findOne({ where: { email } });
 
     if (user) {
-      // DO NOT reset verification if already verified
       if (!user.verified) {
         user.otp = otp;
         user.otpExpires = expiresAt;
         await user.save();
       }
     } else {
-      await User.create({
+      user = await User.create({
         email,
         verified: false,
         otp,
         otpExpires: expiresAt
       });
+
+      // ✅ Only log USER_REGISTERED for brand new users
+      AnalyticsEvent.create({
+        event_type: "USER_REGISTERED",
+        user_id: user.id,
+        country: req.headers["x-country"] || null
+      }).catch(console.error);
     }
 
     await transporter.sendMail({
@@ -106,6 +112,14 @@ export const sendOTP = async (req, res) => {
         </div>
       `
     });
+
+    // ✅ Log OTP_SENT for every OTP request
+    AnalyticsEvent.create({
+      event_type: "OTP_SENT",
+      user_id: user.id,
+      country: req.headers["x-country"] || null
+    }).catch(console.error);
+
     logAudit({
       action: "OTP_SENT",
       actor: { role: "system" },
@@ -114,7 +128,6 @@ export const sendOTP = async (req, res) => {
       req,
       metadata: { email }
     }).catch(console.error);
-
 
     return res.json({ message: "OTP sent to email" });
 
@@ -163,6 +176,13 @@ export const verifyOTP = async (req, res) => {
         maxAge: 7 * 24 * 60 * 60 * 1000
       });
 
+      // ✅ Log USER_LOGIN analytics event
+      AnalyticsEvent.create({
+        event_type: "USER_LOGIN",
+        user_id: user.id,
+        country: req.headers["x-country"] || null
+      }).catch(console.error);
+
       return res.json({
         message: "User already verified",
         user: {
@@ -195,10 +215,15 @@ export const verifyOTP = async (req, res) => {
         metadata: { email }
       }).catch(console.error);
 
+      // ✅ Log OTP_VERIFICATION_FAILED analytics event
+      AnalyticsEvent.create({
+        event_type: "OTP_VERIFICATION_FAILED",
+        user_id: user?.id || null,
+        country: req.headers["x-country"] || null
+      }).catch(console.error);
+
       return res.status(400).json({ message: "Invalid or expired OTP" });
     }
-
-
 
     // Mark verified
     user.verified = true;
@@ -230,6 +255,20 @@ export const verifyOTP = async (req, res) => {
       req
     }).catch(console.error);
 
+    // ✅ Log OTP_VERIFIED analytics event
+    AnalyticsEvent.create({
+      event_type: "OTP_VERIFIED",
+      user_id: user.id,
+      country: req.headers["x-country"] || null
+    }).catch(console.error);
+
+    // ✅ Log USER_LOGIN analytics event
+    AnalyticsEvent.create({
+      event_type: "USER_LOGIN",
+      user_id: user.id,
+      country: req.headers["x-country"] || null
+    }).catch(console.error);
+
     return res.json({
       message: "OTP verified successfully",
       user: {
@@ -238,8 +277,6 @@ export const verifyOTP = async (req, res) => {
         verified: true
       }
     });
-
-
 
   } catch (err) {
     console.error("VERIFY OTP ERROR:", err);
