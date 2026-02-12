@@ -14,6 +14,7 @@ import { initSocket } from "./services/socket.js";
 import "./model/User.js";
 import "./model/Host.js";
 import "./model/Property.js";
+import "./model/Wishlist.js";
 
 /* ===================== ROUTES ===================== */
 import otpRoutes from "./routes/otp.routes.js";
